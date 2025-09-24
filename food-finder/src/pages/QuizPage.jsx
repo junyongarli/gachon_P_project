@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import { MapPin, Phone, ExternalLink } from 'lucide-react';
+import { MapPin, Phone, ExternalLink, Heart  } from 'lucide-react';
 
 const questions = [
   // ... (질문 내용은 그대로) ...
@@ -109,7 +109,27 @@ function QuizPage() {
           <div className="space-y-4 mb-6">
             {restaurants.length > 0 ? (
               restaurants.map((restaurant) => (
-                <Card key={restaurant.id} className="hover:shadow-lg transition-shadow"><CardContent className="p-6"><div className="flex justify-between items-start mb-3"><div className="flex-grow"><h3 className="text-xl font-semibold text-gray-800">{restaurant.name}</h3><Badge variant="secondary" className="mt-1">{restaurant.category}</Badge></div><a href={restaurant.url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="sm">상세보기<ExternalLink className="w-4 h-4 ml-2" /></Button></a></div><div className="space-y-2 text-sm text-gray-600"><div className="flex items-center"><MapPin className="w-4 h-4 mr-2 flex-shrink-0" /><span>{restaurant.address}</span></div><div className="flex items-center"><Phone className="w-4 h-4 mr-2 flex-shrink-0" /><span>{restaurant.phone || '전화번호 정보 없음'}</span></div></div></CardContent></Card>
+                <Card key={restaurant.id} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6"><div className="flex justify-between items-start mb-3">
+                  <div className="flex-grow">
+                    <h3 className="text-xl font-semibold text-gray-800">{restaurant.name}</h3>
+                    <Badge variant="secondary" className="mt-1">{restaurant.category}</Badge>
+                  </div>
+                  <a href={restaurant.url} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="sm">상세보기<ExternalLink className="w-4 h-4 ml-2" /></Button>
+                  </a>
+                  <Button onClick={() => handleFavorite(restaurant)} variant="ghost" size="icon">
+                        <Heart className="w-5 h-5" />
+                  </Button>
+                  </div>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center">
+                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0" /><span>{restaurant.address}</span>
+                    </div>
+                    <div className="flex items-center"><Phone className="w-4 h-4 mr-2 flex-shrink-0" /><span>{restaurant.phone || '전화번호 정보 없음'}</span></div>
+                  </div>
+                  </CardContent>
+                </Card>
               ))
             ) : ( <Card><CardContent className="p-6 text-center text-gray-600"><p>추천할 맛집을 찾지 못했어요. 😥</p><p>다른 조건으로 다시 검색해보세요!</p></CardContent></Card> )}
           </div>

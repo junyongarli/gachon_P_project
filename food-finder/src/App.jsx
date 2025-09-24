@@ -5,6 +5,7 @@ import SignupPage from './pages/SignupPage'; // 이전 단계에서 만든 파�
 import LoginPage from './pages/LoginPage';
 import AdminPage from './pages/AdminPage'; // AdminPage 임포트
 import AdminRoute from './components/AdminRoute'; // AdminRoute 임포트
+import FavoritesPage from './pages/FavoritesPage';
 
 function App() {
   return (
@@ -14,7 +15,7 @@ function App() {
       <Route path="/quiz" element={<QuizPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/login" element={<LoginPage />} />
-
+      <Route path="/favorites" element={<FavoritesPage />} />
       {/* ▼▼▼ 관리자 전용 라우트 ▼▼▼ */}
       <Route element={<AdminRoute />}>
         <Route path="/admin" element={<AdminPage />} />

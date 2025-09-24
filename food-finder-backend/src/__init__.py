@@ -23,9 +23,13 @@ def create_app():
     from src.routes.user_auth import auth_bp
     from src.routes.restaurant import restaurant_bp
     from src.routes.admin import admin_bp
+    from src.routes.favorite import favorite_bp
+
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(restaurant_bp, url_prefix='/api/restaurant')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(favorite_bp, url_prefix='/api/favorites') 
+
 
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
