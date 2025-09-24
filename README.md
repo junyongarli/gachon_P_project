@@ -10,12 +10,16 @@
 
 ### 1. 프로젝트 다운로드
 git clone https://github.com/your-username/your-repo.git
+
 cd your-repo
 
 ### 2. 백엔드 설정 (`food-finder-backend`)
 cd food-finder-backend
+
 python -m venv .venv
+
 source .venv/Scripts/activate  # Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
 
 # .env 파일 생성 및 아래 내용 추가
@@ -25,6 +29,7 @@ touch .env
 
 ### 3. 프론트엔드 설정 (`food-finder`)
 cd ../food-finder
+
 npm install
 
 # .env 파일 생성 및 아래 내용 추가
@@ -39,6 +44,7 @@ npm run build
 
 ### 6. 서버 실행
 cd ../food-finder-backend
+
 python run.py
 
 이제 브라우저에서 `http://127.0.0.1:5000`으로 접속하세요.
