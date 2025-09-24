@@ -9,3 +9,7 @@ src/__pycache__/
 
 # 설정 파일
 .env
+
+node_modules/
+dist/
+.npm/
