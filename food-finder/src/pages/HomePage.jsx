@@ -9,7 +9,7 @@ function HomePage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
       <h1 className="text-4xl font-bold mb-4">맛집 추천 AI</h1>
       
-      {/* ✅ 로그인 상태에 따라 다른 메시지 표시 */}
+      {/* 로그인 상태에 따라 다른 메시지 표시 */}
       {user ? (
         <p className="text-lg text-gray-600 mb-8">
           환영합니다, {user.username}님!
@@ -25,9 +25,17 @@ function HomePage() {
           <Button size="lg">맛집 찾기 시작</Button>
         </Link>
         
-        {/* ✅ 로그인 상태에 따라 다른 버튼 표시 */}
+        {/* 로그인 상태에 따라 다른 버튼 표시 */}
         {user ? (
-          <Button onClick={logout} size="lg" variant="outline">로그아웃</Button>
+          <>
+            {/* ▼▼▼ 추가된 부분 ▼▼▼ */}
+            <Link to="/favorites">
+              <Button size="lg" variant="secondary">찜 목록</Button>
+            </Link>
+            {/* ▲▲▲ 추가된 부분 ▲▲▲ */}
+
+            <Button onClick={logout} size="lg" variant="outline">로그아웃</Button>
+          </>
         ) : (
           <Link to="/login">
             <Button size="lg" variant="outline">로그인</Button>
@@ -35,7 +43,7 @@ function HomePage() {
         )}
       </div>
 
-      {/* ✅ 로그인하지 않았을 때만 회원가입 링크 표시 */}
+      {/* 로그인하지 않았을 때만 회원가입 링크 표시 */}
       {!user && (
         <div className="mt-4 text-sm">
           계정이 없으신가요?{' '}

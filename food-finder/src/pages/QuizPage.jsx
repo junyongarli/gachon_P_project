@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { MapPin, Phone, ExternalLink, Heart  } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const questions = [
-  // ... (질문 내용은 그대로) ...
   { id: 1, question: "어떤 맛을 선호하시나요?", options: [{ text: "매콤한 음식", value: "spicy" }, { text: "담백한 음식", value: "mild" }] },
   { id: 2, question: "어떤 스타일의 음식을 원하시나요?", options: [{ text: "든든한 한식", value: "korean" }, { text: "가벼운 양식", value: "western" }] },
   { id: 3, question: "주식으로 무엇을 선호하시나요?", options: [{ text: "면 요리", value: "noodle" }, { text: "밥 요리", value: "rice" }] },
@@ -16,8 +16,6 @@ const questions = [
   { id: 8, question: "누구와 함께 드시나요?", options: [{ text: "혼밥하기 좋은 곳", value: "alone" }, { text: "여럿이 가기 좋은 곳", value: "group" }] }
 ];
 
-
-// ▼▼▼ KakaoMap 컴포넌트를 아래와 같이 수정합니다 ▼▼▼
 const KakaoMap = ({ restaurants, userLocation }) => {
   useEffect(() => {
     const kakaoMapScript = document.createElement('script');
@@ -64,27 +62,48 @@ const KakaoMap = ({ restaurants, userLocation }) => {
 
   return <div id="map" style={{ width: '100%', height: '400px', borderRadius: '8px', marginBottom: '24px' }}></div>;
 };
-// ▲▲▲ 여기까지 수정 ▲▲▲
 
 
 function QuizPage() {
+  const { token } = useAuth();
   const [currentStep, setCurrentStep] = useState('start');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [restaurants, setRestaurants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-
-  // ▼▼▼ QuizPage에 있던 스크립트 로딩 useEffect는 이제 필요 없으므로 삭제합니다. ▼▼▼
-  /*
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${import.meta.env.VITE_KAKAO_APP_KEY}&autoload=false`;
-    script.async = true;
-    document.head.appendChild(script);
-  }, []);
-  */
-  // ▲▲▲ 이 부분을 삭제 ▲▲▲
   
+  const handleFavorite = async (restaurant) => {
+    if (!token) {
+      alert("찜하기 기능은 로그인이 필요합니다.");
+      return;
+    }
+    try {
+      const response = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurant.id,
+          restaurant_name: restaurant.name,
+          category: restaurant.category,
+          address: restaurant.address,
+          phone: restaurant.phone,
+          url: restaurant.url,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert(`'${restaurant.name}' 맛집을 찜했습니다!`);
+      } else {
+        alert(data.message || '찜하기에 실패했습니다.');
+      }
+    } catch (error) {
+      alert('찜하기 요청 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleStart = () => { if (navigator.geolocation) { navigator.geolocation.getCurrentPosition( (position) => { setUserLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude }); setCurrentStep('questions'); }, (error) => { setCurrentStep('questions'); } ); } else { setCurrentStep('questions'); } };
   const handleAnswer = (questionId, answer) => { const newAnswers = { ...answers, [questionId]: answer.value }; setAnswers(newAnswers); if (currentQuestionIndex < questions.length - 1) { setCurrentQuestionIndex(currentQuestionIndex + 1); } else { searchRestaurants(newAnswers); } };
   const searchRestaurants = async (userAnswers) => { setCurrentStep('loading'); try { const response = await fetch('/api/restaurant/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: Object.values(userAnswers), location: userLocation }) }); const data = await response.json(); if (data.success) { setRestaurants(data.restaurants); } else { setRestaurants([]); } } catch (error) { setRestaurants([]); } setCurrentStep('results'); };

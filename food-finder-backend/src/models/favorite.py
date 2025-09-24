@@ -1,5 +1,6 @@
 from src import db
 from datetime import datetime
+from src.models.user import User
 
 class Favorite(db.Model):
     __tablename__ = 'favorites'
@@ -16,7 +17,7 @@ class Favorite(db.Model):
     url = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # User 모델과의 관계 설정 (선택 사항이지만 유용함)
+    # User 모델과의 관계 설정 
     user = db.relationship('User', backref=db.backref('favorites', lazy=True))
 
     def to_dict(self):
