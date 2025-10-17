@@ -27,7 +27,7 @@
 - Git: 소스 코드 관리를 위해 필요합니다.
 
 2. 리포지토리 클론
-- Bash
+Bash
 ```
 git clone https://github.com/junyongarli/gachon_P_project.git
 cd gachon_P_project
@@ -35,7 +35,7 @@ cd gachon_P_project
 3. 백엔드 설정 (/food-finder-backend-node)
 - 폴더 이동 및 의존성 설치:
 
-- Bash
+Bash
 ```
 cd food-finder-backend-node
 npm install
@@ -81,7 +81,7 @@ VITE_KAKAO_APP_KEY= # 발급받은 카카오 JavaScript 키
 
 - 서버를 실행합니다:
 
-- Bash
+Bash
 ```
 node app.js
 ```
