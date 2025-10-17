@@ -48,17 +48,17 @@ CREATE DATABASE food_finder_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 환경 변수 파일 (.env) 생성: food-finder-backend-node 폴더 안에 .env 파일을 만들고, 아래 내용을 자신의 환경에 맞게 채워주세요.
 
-### MariaDB 접속 정보
+__MariaDB 접속 정보__
 DB_HOST=127.0.0.1
 DB_USER=root
 DB_PASSWORD= # 설치 시 설정한 MariaDB root 비밀번호
 DB_NAME=food_finder_db
 DB_PORT=3306
 
-### JWT 비밀 키
+__JWT 비밀 키__
 JWT_SECRET_KEY=a_very_long_and_secret_string_for_your_project
 
-### 카카오 API 키
+__카카오 API 키__
 KAKAO_REST_API_KEY= # 발급받은 카카오 REST API 키
 4. 프론트엔드 설정 (/food-finder)
 폴더 이동 및 의존성 설치:
