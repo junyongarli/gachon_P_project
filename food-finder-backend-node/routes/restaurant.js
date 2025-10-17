@@ -1,34 +1,48 @@
 // routes/restaurant.js
 
 const express = require('express');
-const axios = require('axios'); // API 호출을 위한 axios
+const axios = require('axios');
 
 const router = express.Router();
 
-// 음식 취향 키워드 매핑 (Python의 딕셔너리를 JavaScript 객체로)
+// [수정됨] 키워드를 종류(type)와 우선순위에 따라 재구성
 const FOOD_KEYWORDS = {
-    'spicy': ['매운', '떡볶이', '김치찌개', '마라탕', '불닭'], 'mild': ['순한', '된장찌개', '미역국', '백반', '정식'],
-    'korean': ['한식', '김치', '불고기', '갈비', '비빔밥'], 'western': ['양식', '파스타', '피자', '스테이크', '햄버거'],
-    'rice': ['밥', '덮밥', '볶음밥', '비빔밥', '정식'], 'noodle': ['면', '라면', '냉면', '파스타', '우동'],
-    'meat': ['고기', '삼겹살', '갈비', '치킨', '스테이크'], 'seafood': ['해산물', '회', '조개', '새우', '게'],
-    'hot': ['뜨거운', '찌개', '국물', '탕', '전골'], 'cold': ['차가운', '냉면', '회', '샐러드', '아이스크림'],
-    'salty': ['짠', '젓갈', '김치', '라면', '치킨'], 'sweet': ['단', '디저트', '케이크', '아이스크림', '과일'],
-    'traditional': ['전통', '한정식', '백반', '정통', '옛날'], 'modern': ['모던', '퓨전', '신메뉴', '트렌드', '새로운'],
-    'alone': ['혼밥', '1인분', '간단한', '가벼운', '테이크아웃'], 'group': ['단체', '회식', '모임', '가족', '여럿이']
+    // 1순위: 종류 (Cuisine)
+    'korean':   { type: 'cuisine', keywords: ['한식'] },
+    'western':  { type: 'cuisine', keywords: ['양식', '이탈리안'] },
+    'sweet':    { type: 'cuisine', keywords: ['디저트', '카페'] },
+
+    // 2순위: 재료/기반 (Ingredient/Base)
+    'meat':     { type: 'ingredient', keywords: ['고기'] },
+    'seafood':  { type: 'ingredient', keywords: ['해산물'] },
+    'rice':     { type: 'ingredient', keywords: ['밥집', '백반'] },
+    'noodle':   { type: 'ingredient', keywords: ['면요리', '국수'] },
+
+    // 3순위: 맛/특징 (Flavor/Attribute)
+    'spicy':    { type: 'flavor', keywords: ['매운'] },
+    'mild':     { type: 'flavor', keywords: ['순한'] },
+    'hot':      { type: 'flavor', keywords: ['따뜻한', '국물'] },
+    'cold':     { type: 'flavor', keywords: ['시원한'] },
+    'salty':    { type: 'flavor', keywords: ['짭짤한'] },
+
+    // 기타 (상황/분위기 등) - 검색어 조합에는 사용하지 않음
+    'traditional': { type: 'style', keywords: ['전통'] },
+    'modern':   { type: 'style', keywords: ['모던', '퓨전'] },
+    'alone':    { type: 'style', keywords: ['혼밥'] },
+    'group':    { type: 'style', keywords: ['단체', '모임'] }
 };
 
-// 카카오 API 검색을 수행하는 헬퍼 함수
+// 카카오 API 검색을 수행하는 헬퍼 함수 (변경 없음)
 const performKakaoSearch = async (params, apiKey) => {
     const url = 'https://dapi.kakao.com/v2/local/search/keyword.json';
     const headers = { 'Authorization': `KakaoAK ${apiKey}` };
-    console.log("🔍 카카오 API 요청:", params); // 디버깅용 로그
+    console.log("🔍 카카오 API 요청:", params);
     const response = await axios.get(url, { headers, params });
     return response.data;
 };
 
-// ## 맛집 검색 API (/api/restaurant/search)
+// [수정됨] 맛집 검색 API (/api/restaurant/search)
 router.post('/search', async (req, res) => {
-    console.log("백엔드가 프론트로부터 받은 데이터:", req.body);
     try {
         const kakaoApiKey = process.env.KAKAO_REST_API_KEY;
         if (!kakaoApiKey) {
@@ -36,10 +50,25 @@ router.post('/search', async (req, res) => {
         }
 
         const { answers, location } = req.body;
+        console.log("백엔드가 프론트로부터 받은 데이터:", req.body);
 
-        // 1. 키워드 생성
-        const keywords = answers.flatMap(answer => FOOD_KEYWORDS[answer] || []);
-        const uniqueKeywords = [...new Set(keywords)];
+        // 1. 답변을 종류별로 분류
+        const categorized = { cuisine: [], ingredient: [], flavor: [] };
+        answers.forEach(answer => {
+            const keywordInfo = FOOD_KEYWORDS[answer];
+            if (keywordInfo && categorized[keywordInfo.type]) {
+                categorized[keywordInfo.type].push(...keywordInfo.keywords);
+            }
+        });
+
+        // 2. 우선순위에 따라 검색어 조합 (종류 > 재료 > 맛)
+        const queryParts = [];
+        if (categorized.cuisine.length > 0)   queryParts.push(categorized.cuisine[0]);
+        if (categorized.ingredient.length > 0) queryParts.push(categorized.ingredient[0]);
+        if (categorized.flavor.length > 0)     queryParts.push(categorized.flavor[0]);
+        
+        // 3. 최종 검색어 생성
+        const finalQuery = queryParts.join(' ');
 
         let params = { size: 10, category_group_code: 'FD6' };
         if (location?.latitude && location?.longitude) {
@@ -47,22 +76,29 @@ router.post('/search', async (req, res) => {
                 ...params,
                 x: String(location.longitude),
                 y: String(location.latitude),
-                radius: 2000,
+                radius: 3000,
                 sort: 'distance'
             };
         }
+        params.query = finalQuery || '맛집'; // 조합된 검색어가 없으면 '맛집'으로 검색
 
-        // 2. 1단계 검색: 구체적인 키워드 (최대 2개)
-        params.query = uniqueKeywords.slice(0, 2).join(' ') || '맛집';
         let result = await performKakaoSearch(params, kakaoApiKey);
 
-        // 3. 2단계 검색: 1단계 결과가 없으면, 핵심 키워드 1개로 재검색
-        if (result.documents.length === 0 && uniqueKeywords.length > 1) {
-            params.query = uniqueKeywords[0];
+        // 4. (선택적) 1차 검색 결과가 없으면, 더 넓은 범위로 2차 검색
+        if (result.documents.length === 0 && queryParts.length > 1) {
+            console.log("1차 검색 결과 없음. 우선순위 높은 키워드로 2차 검색 시도...");
+            const fallbackQuery = queryParts.slice(0, 2).join(' '); // 우선순위 높은 2개 키워드만 사용
+            params.query = fallbackQuery;
             result = await performKakaoSearch(params, kakaoApiKey);
         }
 
-        // 4. 최종 결과 포맷팅
+        if (result.documents.length === 0 && queryParts.length > 0) {
+            console.log("2차 검색 결과 없음. 3차 검색 시도...");
+            const finalQuery = queryParts[0]; // 가장 중요한 키워드 하나만 사용
+            params.query = finalQuery;
+            result = await performKakaoSearch(params, kakaoApiKey);
+        }
+        // 5. 최종 결과 포맷팅
         const restaurants = result.documents.map(item => ({
             id: item.id,
             name: item.place_name,
