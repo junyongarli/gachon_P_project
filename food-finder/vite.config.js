@@ -11,4 +11,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      // '/api'로 시작하는 요청을 백엔드 서버로 전달합니다.
+      '/api': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true, // CORS 에러를 방지하기 위해 필요합니다.
+      },
+    },
+  },
 })
