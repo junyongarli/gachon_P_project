@@ -11,5 +11,6 @@ src/__pycache__/
 .env
 
 node_modules/
+food-finder/node_modules/
 dist/
 .npm/
