@@ -4,15 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MapPin, Phone, ExternalLink, Heart, Utensils, Clock, Star, Filter } from 'lucide-react';
+import { Search, MapPin, Phone, ExternalLink, Heart, Utensils, Clock, Star, Filter, DollarSign, CarFront, SlidersHorizontal } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 function SearchPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [sortBy, setSortBy] = useState('rating'); // 정렬 기준
+  const [priceRange, setPriceRange] = useState('all'); // 가격대
+  const [openNow, setOpenNow] = useState(false); // 영업 중만 보기
+  const [hasParking, setHasParking] = useState(false); // 주차 가능만 보기
+  const [showFilters, setShowFilters] = useState(false); // 필터 표시 여부
   const { user } = useAuth();
 
   const categories = [
@@ -189,11 +203,97 @@ function SearchPage() {
           </Card>
         </motion.div>
 
-        {/* 검색 결과 */}
+        {/* 추가 필터 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
+          className="mb-6"
+        >
+          <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <SlidersHorizontal className="w-4 h-4 text-orange-500" />
+                <span className="text-sm text-gray-600">추가 필터</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => setShowFilters(!showFilters)}
+                  variant="outline"
+                  size="sm"
+                  className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
+                >
+                  {showFilters ? '필터 숨기기' : '필터 보기'}
+                </Button>
+              </div>
+              {showFilters && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Label className="text-sm text-gray-600">정렬 기준</Label>
+                    <Select
+                      value={sortBy}
+                      onValueChange={setSortBy}
+                      className="w-40"
+                    >
+                      <SelectTrigger className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+                        <SelectValue placeholder="정렬 기준 선택">
+                          {sortBy}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+                        <SelectItem value="rating">평점 순</SelectItem>
+                        <SelectItem value="reviewCount">리뷰 순</SelectItem>
+                        <SelectItem value="name">이름 순</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Label className="text-sm text-gray-600">가격대</Label>
+                    <Select
+                      value={priceRange}
+                      onValueChange={setPriceRange}
+                      className="w-40"
+                    >
+                      <SelectTrigger className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+                        <SelectValue placeholder="가격대 선택">
+                          {priceRange}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="low">저가</SelectItem>
+                        <SelectItem value="medium">중가</SelectItem>
+                        <SelectItem value="high">고가</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Checkbox
+                      checked={openNow}
+                      onCheckedChange={setOpenNow}
+                      className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20"
+                    />
+                    <Label className="text-sm text-gray-600">영업 중만 보기</Label>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Checkbox
+                      checked={hasParking}
+                      onCheckedChange={setHasParking}
+                      className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20"
+                    />
+                    <Label className="text-sm text-gray-600">주차 가능만 보기</Label>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* 검색 결과 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
         >
           {isSearching ? (
             <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">

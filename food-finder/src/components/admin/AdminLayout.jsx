@@ -9,12 +9,11 @@ function AdminLayout() {
   const { logout } = useAuth();
 
   const menuItems = [
-    { path: '/admin', icon: LayoutDashboard, label: '대시보드', exact: true },
-    { path: '/admin/users', icon: Users, label: '시설자 관리' },
+    { path: '/admin/users', icon: Users, label: '사용자 관리' },
     { path: '/admin/notifications', icon: Bell, label: '시설자 알림 관리' },
-    { path: '/admin/ai', icon: Brain, label: 'AI상호 관리' },
+    { path: '/admin/ai', icon: Brain, label: 'AI모델 관리' },
     { path: '/admin/community', icon: MessageSquare, label: '커뮤니티 관리' },
-    { path: '/admin/statistics', icon: BarChart3, label: '통계' },
+    // { path: '/admin/statistics', icon: BarChart3, label: '통계' }, // 일단 보류
     { path: '/admin/settings', icon: Settings, label: '설정' },
   ];
 
