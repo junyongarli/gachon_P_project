@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Utensils, Sparkles, ChefHat, Heart, Map } from 'lucide-react';
+import { Utensils, Sparkles, ChefHat, Heart, Map, Brain, Navigation } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function HomePage() {
@@ -66,15 +66,33 @@ function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="mb-16"
+            className="mb-12 flex flex-col sm:flex-row gap-4"
           >
             <Link to="/quiz">
               <Button 
                 size="lg" 
-                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 px-12 py-8 text-xl"
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 px-10 py-6 text-lg"
               >
-                <Utensils className="w-6 h-6 mr-3" />
-                맛집 찾기 시작하기
+                <Utensils className="w-5 h-5 mr-2" />
+                AI 퀴즈 시작하기
+              </Button>
+            </Link>
+            <Link to="/smart-search">
+              <Button 
+                size="lg" 
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 px-10 py-6 text-lg"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                스마트 검색
+              </Button>
+            </Link>
+            <Link to="/personalized">
+              <Button 
+                size="lg" 
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 px-10 py-6 text-lg"
+              >
+                <Brain className="w-5 h-5 mr-2" />
+                개인화 추천
               </Button>
             </Link>
           </motion.div>
@@ -84,40 +102,46 @@ function HomePage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl"
           >
-            {/* AI 질문 카드 */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="bg-gradient-to-r from-orange-400 to-red-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Sparkles className="w-6 h-6 text-white" />
+            {/* AI 퀴즈 카드 */}
+            <Link to="/quiz" className="block">
+              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300 hover:scale-105 h-full">
+                <div className="bg-gradient-to-r from-orange-400 to-red-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl text-gray-800 mb-2">AI 퀴즈 추천</h3>
+                <p className="text-gray-600">
+                  8가지 질문으로 취향 분석 완료
+                </p>
               </div>
-              <h3 className="text-xl text-gray-800 mb-2">AI 기반 추천</h3>
-              <p className="text-gray-600">
-                몇 가지 질문만으로 당신의 취향에 딱 맞는 맛집을 찾아드립니다
-              </p>
-            </div>
+            </Link>
 
-            {/* 지도 기반 카드 */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="bg-gradient-to-r from-orange-400 to-red-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Map className="w-6 h-6 text-white" />
+            {/* 스마트 검색 카드 */}
+            <Link to="/smart-search" className="block">
+              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-blue-200/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 h-full">
+                <div className="bg-gradient-to-r from-blue-400 to-cyan-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl text-gray-800 mb-2">스마트 검색</h3>
+                <p className="text-gray-600">
+                  AI와 대화하며 거리·경로 확인
+                </p>
               </div>
-              <h3 className="text-xl text-gray-800 mb-2">지도로 확인</h3>
-              <p className="text-gray-600">
-                추천받은 맛집의 위치를 지도에서 바로 확인하고 방문하세요
-              </p>
-            </div>
+            </Link>
 
-            {/* 찜 목록 카드 */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="bg-gradient-to-r from-orange-400 to-red-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                <Heart className="w-6 h-6 text-white" />
+            {/* 개인화 추천 카드 */}
+            <Link to="/personalized" className="block">
+              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-purple-200/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 h-full">
+                <div className="bg-gradient-to-r from-purple-400 to-pink-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl text-gray-800 mb-2">개인화 추천</h3>
+                <p className="text-gray-600">
+                  내 취향 학습해 맞춤 추천
+                </p>
               </div>
-              <h3 className="text-xl text-gray-800 mb-2">찜 목록 관리</h3>
-              <p className="text-gray-600">
-                마음에 드는 맛집을 저장하고 나중에 다시 방문해보세요
-              </p>
-            </div>
+            </Link>
           </motion.div>
         </div>
       </div>

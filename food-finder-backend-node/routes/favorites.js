@@ -41,5 +41,38 @@ router.get('/', protect, async (req, res) => {
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 });
+// ## 🆕 찜한 맛집 삭제 API (이 부분을 추가!)
+router.delete('/:id', protect, async (req, res) => {
+  const userId = req.user.id;
+  const favoriteId = req.params.id;
+
+  try {
+    // 해당 찜이 존재하고, 본인의 찜인지 확인
+    const favorite = await Favorite.findOne({
+      where: { id: favoriteId, userId }
+    });
+
+    if (!favorite) {
+      return res.status(404).json({
+        success: false,
+        message: '찜한 맛집을 찾을 수 없습니다.'
+      });
+    }
+
+    // 삭제 실행
+    await favorite.destroy();
+
+    res.json({
+      success: true,
+      message: '찜 목록에서 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('찜 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+});
 
 module.exports = router;

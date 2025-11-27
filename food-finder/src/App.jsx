@@ -6,8 +6,9 @@ import SignupPage from './pages/SignupPage';
 import LoginPage from './pages/LoginPage';
 import AdminRoute from './components/AdminRoute';
 import FavoritesPage from './pages/FavoritesPage';
-import MapViewPage from './pages/MapViewPage';
 import SearchPage from './pages/SearchPage';
+import SmartSearchPage from './pages/SmartSearchPage'; // 스마트 검색
+import PersonalizedPage from './pages/PersonalizedPage'; // 개인화 추천
 import ReviewPage from './pages/ReviewPage';
 import CustomerServicePage from './pages/CustomerServicePage';
 import SettingsPage from './pages/SettingsPage';
@@ -39,13 +40,14 @@ function App() {
         <Route path="/login" element={<><Navbar /><LoginPage /></>} />
         <Route path="/forgot-password" element={<><Navbar /><ForgotPasswordPage /></>} />
         <Route path="/favorites" element={<><Navbar /><FavoritesPage /></>} />
-        <Route path="/map" element={<><Navbar /><MapViewPage /></>} />
         <Route path="/search" element={<><Navbar /><SearchPage /></>} />
+        <Route path="/smart-search" element={<><Navbar /><SmartSearchPage /></>} /> {/* 스마트 검색 */}
+        <Route path="/personalized" element={<><Navbar /><PersonalizedPage /></>} /> {/* 개인화 추천 */}
         <Route path="/reviews" element={<><Navbar /><ReviewPage /></>} />
         <Route path="/customer-service" element={<><Navbar /><CustomerServicePage /></>} />
         <Route path="/settings" element={<><Navbar /><SettingsPage /></>} />
         
-        {/* 관리자 전용 라우트 (중첩 라우팅, Navbar 없음) */}
+        {/* 관리자 전용 라우트 (중첩 라우, Navbar 없음) */}
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
