@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Utensils, Sparkles, ChefHat, Heart, Map, Brain, Navigation } from 'lucide-react';
+import { Utensils, Sparkles, ChefHat, Heart, Map, Navigation } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function HomePage() {
@@ -86,15 +86,6 @@ function HomePage() {
                 스마트 검색
               </Button>
             </Link>
-            <Link to="/personalized">
-              <Button 
-                size="lg" 
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 px-10 py-6 text-lg"
-              >
-                <Brain className="w-5 h-5 mr-2" />
-                개인화 추천
-              </Button>
-            </Link>
           </motion.div>
 
           {/* 기능 카드들 */}
@@ -102,44 +93,39 @@ function HomePage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl"
+            className="flex flex-col gap-6 w-full max-w-2xl"
           >
             {/* AI 퀴즈 카드 */}
             <Link to="/quiz" className="block">
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300 hover:scale-105 h-full">
-                <div className="bg-gradient-to-r from-orange-400 to-red-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <Sparkles className="w-6 h-6 text-white" />
+              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-8 shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="flex items-center gap-4">
+                  <div className="bg-gradient-to-r from-orange-400 to-red-500 w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl text-gray-800 mb-1">AI 퀴즈 추천</h3>
+                    <p className="text-gray-600">
+                      8가지 질문으로 취향 분석 완료
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-xl text-gray-800 mb-2">AI 퀴즈 추천</h3>
-                <p className="text-gray-600">
-                  8가지 질문으로 취향 분석 완료
-                </p>
               </div>
             </Link>
 
             {/* 스마트 검색 카드 */}
             <Link to="/smart-search" className="block">
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-blue-200/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 h-full">
-                <div className="bg-gradient-to-r from-blue-400 to-cyan-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <Sparkles className="w-6 h-6 text-white" />
+              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-8 shadow-xl border border-blue-200/40 hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="flex items-center gap-4">
+                  <div className="bg-gradient-to-r from-blue-400 to-cyan-500 w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl text-gray-800 mb-1">스마트 검색</h3>
+                    <p className="text-gray-600">
+                      AI와 대화하며 거리·경로 확인
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-xl text-gray-800 mb-2">스마트 검색</h3>
-                <p className="text-gray-600">
-                  AI와 대화하며 거리·경로 확인
-                </p>
-              </div>
-            </Link>
-
-            {/* 개인화 추천 카드 */}
-            <Link to="/personalized" className="block">
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-purple-200/40 hover:shadow-2xl transition-all duration-300 hover:scale-105 h-full">
-                <div className="bg-gradient-to-r from-purple-400 to-pink-500 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                  <Brain className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl text-gray-800 mb-2">개인화 추천</h3>
-                <p className="text-gray-600">
-                  내 취향 학습해 맞춤 추천
-                </p>
               </div>
             </Link>
           </motion.div>

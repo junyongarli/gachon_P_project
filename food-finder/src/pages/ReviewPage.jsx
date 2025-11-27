@@ -1,84 +1,51 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Star, MessageSquare, ThumbsUp, User, Calendar, Utensils, Edit3 } from 'lucide-react';
+import { Star, Search, MapPin, ExternalLink, MessageSquare, Calendar, User } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useAuth } from '@/contexts/AuthContext';
 
 function ReviewPage() {
-  const [reviews, setReviews] = useState([
-    {
-      id: 1,
-      restaurantName: '맛있는 한식당',
-      userName: '김철수',
-      rating: 5,
-      content: '정말 맛있었어요! 특히 김치찌개가 일품이었습니다. 재방문 의사 100%',
-      date: '2024-01-15',
-      likes: 12,
-      category: '한식',
-    },
-    {
-      id: 2,
-      restaurantName: '이탈리안 레스토랑',
-      userName: '이영희',
-      rating: 4,
-      content: '파스타가 정말 맛있었어요. 분위기도 좋고 데이트하기 좋은 곳입니다.',
-      date: '2024-01-14',
-      likes: 8,
-      category: '양식',
-    },
-  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const [newReview, setNewReview] = useState({
-    restaurantName: '',
-    rating: 5,
-    content: '',
-  });
-
-  const { user } = useAuth();
-
-  // 리뷰 작성
-  const handleSubmitReview = () => {
-    if (!user) {
-      alert('로그인이 필요한 기능입니다.');
+  // 카카오맵에서 장소 검색
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      alert('검색어를 입력해주세요.');
       return;
     }
 
-    if (!newReview.restaurantName.trim() || !newReview.content.trim()) {
-      alert('맛집 이름과 리뷰 내용을 입력해주세요.');
-      return;
-    }
-
-    const review = {
-      id: Date.now(),
-      ...newReview,
-      userName: user.username,
-      date: new Date().toISOString().split('T')[0],
-      likes: 0,
-      category: '기타',
-    };
-
-    setReviews([review, ...reviews]);
-    setNewReview({ restaurantName: '', rating: 5, content: '' });
-    alert('리뷰가 작성되었습니다!');
+    setIsSearching(true);
+    
+    // 카카오 장소 검색 API
+    const ps = new window.kakao.maps.services.Places();
+    
+    ps.keywordSearch(searchQuery, (data, status) => {
+      setIsSearching(false);
+      
+      if (status === window.kakao.maps.services.Status.OK) {
+        setSearchResults(data.slice(0, 10)); // 상위 10개만
+        setSelectedPlace(null);
+      } else {
+        alert('검색 결과가 없습니다.');
+        setSearchResults([]);
+      }
+    });
   };
 
-  // 좋아요
-  const handleLike = (reviewId) => {
-    if (!user) {
-      alert('로그인이 필요한 기능입니다.');
-      return;
-    }
+  // 카카오맵에서 리뷰 보기 (새 창에서 열기)
+  const openKakaoMapReview = (place) => {
+    const url = `https://map.kakao.com/link/to/${place.place_name},${place.y},${place.x}`;
+    window.open(url, '_blank');
+  };
 
-    setReviews(reviews.map(review => 
-      review.id === reviewId 
-        ? { ...review, likes: review.likes + 1 }
-        : review
-    ));
+  // 장소 선택
+  const handleSelectPlace = (place) => {
+    setSelectedPlace(place);
   };
 
   return (
@@ -106,185 +73,155 @@ function ReviewPage() {
             </div>
             <div>
               <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                맛집 리뷰
+                카카오맵 리뷰 조회
               </h1>
-              <p className="text-gray-600 mt-1">다른 사람들의 리뷰를 확인하고 나의 경험을 공유하세요</p>
+              <p className="text-gray-600 mt-1">카카오맵에서 맛집 리뷰를 확인하세요</p>
             </div>
           </div>
         </motion.div>
 
-        {/* 탭 */}
+        {/* 검색 영역 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
+          className="mb-6"
         >
-          <Tabs defaultValue="list" className="w-full">
-            <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-2 mb-6">
-              <TabsTrigger value="list">리뷰 목록</TabsTrigger>
-              <TabsTrigger value="write">리뷰 작성</TabsTrigger>
-            </TabsList>
+          <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+            <CardContent className="p-6">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Input
+                    type="text"
+                    placeholder="맛집 이름을 검색하세요 (예: 강남 맛집, 홍대 카페)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="h-12"
+                  />
+                </div>
+                <Button
+                  onClick={handleSearch}
+                  disabled={isSearching}
+                  className="h-12 px-6 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+                >
+                  <Search className="w-5 h-5 mr-2" />
+                  {isSearching ? '검색 중...' : '검색'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-            {/* 리뷰 목록 탭 */}
-            <TabsContent value="list">
-              <div className="space-y-4">
-                {reviews.length > 0 ? (
-                  reviews.map((review, index) => (
-                    <motion.div
-                      key={review.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20 hover:shadow-xl transition-all">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="text-xl text-gray-800">
-                                  {review.restaurantName}
-                                </h3>
-                                <Badge className="bg-orange-100 text-orange-700 border-none">
-                                  {review.category}
-                                </Badge>
-                              </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                                <div className="flex items-center gap-1">
-                                  <User className="w-4 h-4" />
-                                  <span>{review.userName}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>{review.date}</span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1 mb-3">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`w-5 h-5 ${
-                                      star <= review.rating
-                                        ? 'text-yellow-500 fill-yellow-500'
-                                        : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-
-                              <p className="text-gray-700 leading-relaxed mb-4">
-                                {review.content}
-                              </p>
-
-                              <Button
-                                onClick={() => handleLike(review.id)}
-                                variant="ghost"
-                                size="sm"
-                                className="hover:bg-orange-50 hover:text-orange-600"
-                              >
-                                <ThumbsUp className="w-4 h-4 mr-2" />
-                                도움됐어요 ({review.likes})
-                              </Button>
-                            </div>
+        {/* 검색 결과 */}
+        {searchResults.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-4"
+          >
+            <h2 className="text-2xl text-gray-800 mb-4">검색 결과 ({searchResults.length}개)</h2>
+            
+            <div className="grid grid-cols-1 gap-4">
+              {searchResults.map((place, index) => (
+                <motion.div
+                  key={place.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card 
+                    className={`bg-white/80 backdrop-blur-sm shadow-lg border hover:shadow-xl transition-all cursor-pointer ${
+                      selectedPlace?.id === place.id ? 'border-orange-500 border-2' : 'border-white/20'
+                    }`}
+                    onClick={() => handleSelectPlace(place)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-xl text-gray-800">
+                              {place.place_name}
+                            </h3>
+                            {place.category_name && (
+                              <Badge className="bg-orange-100 text-orange-700 border-none">
+                                {place.category_name.split(' > ').pop()}
+                              </Badge>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))
-                ) : (
-                  <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
-                    <CardContent className="p-12 text-center">
-                      <MessageSquare className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                      <p className="text-xl text-gray-600 mb-2">아직 리뷰가 없습니다</p>
-                      <p className="text-gray-500">첫 번째 리뷰를 작성해보세요!</p>
+                          
+                          <div className="space-y-2 text-sm text-gray-600 mb-4">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4" />
+                              <span>{place.address_name || place.road_address_name}</span>
+                            </div>
+                            {place.phone && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-orange-600">📞</span>
+                                <span>{place.phone}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openKakaoMapReview(place);
+                            }}
+                            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            카카오맵에서 리뷰 보기
+                          </Button>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
-                )}
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* 초기 상태 또는 검색 결과 없을 때 */}
+        {searchResults.length === 0 && !isSearching && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+              <CardContent className="p-12 text-center">
+                <Search className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                <p className="text-xl text-gray-600 mb-2">맛집을 검색해보세요</p>
+                <p className="text-gray-500">카카오맵의 리뷰를 확인할 수 있습니다</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* 안내 카드 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-6"
+        >
+          <Card className="bg-gradient-to-r from-orange-100 to-red-100 border-orange-200">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <MessageSquare className="w-6 h-6 text-orange-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="text-lg text-gray-800 mb-2">카카오맵 리뷰란?</h3>
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    카카오맵에서 실제 방문자들이 남긴 리뷰와 평점을 확인할 수 있습니다. 
+                    "카카오맵에서 리뷰 보기" 버튼을 클릭하면 해당 맛집의 상세 정보와 리뷰를 확인할 수 있습니다.
+                  </p>
+                </div>
               </div>
-            </TabsContent>
-
-            {/* 리뷰 작성 탭 */}
-            <TabsContent value="write">
-              <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
-                <CardContent className="p-6">
-                  {user ? (
-                    <div className="space-y-6">
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Utensils className="w-5 h-5 text-orange-500" />
-                          <label className="text-sm text-gray-700">맛집 이름</label>
-                        </div>
-                        <Input
-                          type="text"
-                          placeholder="방문한 맛집의 이름을 입력하세요"
-                          value={newReview.restaurantName}
-                          onChange={(e) => setNewReview({ ...newReview, restaurantName: e.target.value })}
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Star className="w-5 h-5 text-orange-500" />
-                          <label className="text-sm text-gray-700">평점</label>
-                        </div>
-                        <div className="flex gap-2">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              onClick={() => setNewReview({ ...newReview, rating: star })}
-                              className="transition-transform hover:scale-110"
-                            >
-                              <Star
-                                className={`w-8 h-8 ${
-                                  star <= newReview.rating
-                                    ? 'text-yellow-500 fill-yellow-500'
-                                    : 'text-gray-300'
-                                }`}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Edit3 className="w-5 h-5 text-orange-500" />
-                          <label className="text-sm text-gray-700">리뷰 내용</label>
-                        </div>
-                        <Textarea
-                          placeholder="맛집에 대한 솔직한 리뷰를 작성해주세요&#10;- 음식의 맛은 어땠나요?&#10;- 서비스는 만족스러웠나요?&#10;- 분위기는 어땠나요?&#10;- 다시 방문하고 싶으신가요?"
-                          value={newReview.content}
-                          onChange={(e) => setNewReview({ ...newReview, content: e.target.value })}
-                          rows={8}
-                          className="resize-none"
-                        />
-                      </div>
-
-                      <Button
-                        onClick={handleSubmitReview}
-                        className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        리뷰 작성하기
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <User className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                      <p className="text-xl text-gray-600 mb-4">로그인이 필요한 서비스입니다</p>
-                      <p className="text-gray-500 mb-6">리뷰를 작성하려면 로그인해주세요</p>
-                      <a href="/login">
-                        <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-                          로그인하러 가기
-                        </Button>
-                      </a>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
 
