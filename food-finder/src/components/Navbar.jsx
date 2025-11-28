@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Heart, ChefHat, User, LogOut, MapPin, Search, MessageSquare, Settings, HelpCircle, Shield } from 'lucide-react';
+import { Heart, ChefHat, User, LogOut, MapPin, Search, MessageSquare, Settings, HelpCircle, Shield, Sparkles, Bell, UserCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import {
   DropdownMenu,
@@ -36,22 +36,22 @@ function Navbar() {
           {/* 네비게이션 메뉴 */}
           <div className="flex items-center gap-2">
             {/* 주요 메뉴 */}
-            <Link to="/map">
+            <Link to="/smart-search">
               <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-600 hover:bg-orange-50">
-                <MapPin className="w-4 h-4 mr-2" />
-                지도
-              </Button>
-            </Link>
-            <Link to="/search">
-              <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-600 hover:bg-orange-50">
-                <Search className="w-4 h-4 mr-2" />
-                검색
+                <Sparkles className="w-4 h-4 mr-2" />
+                스마트 검색
               </Button>
             </Link>
             <Link to="/reviews">
               <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-600 hover:bg-orange-50">
                 <MessageSquare className="w-4 h-4 mr-2" />
                 리뷰
+              </Button>
+            </Link>
+            <Link to="/notices">
+              <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-600 hover:bg-orange-50">
+                <Bell className="w-4 h-4 mr-2" />
+                공지사항
               </Button>
             </Link>
 
@@ -68,7 +68,7 @@ function Navbar() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-600 hover:bg-orange-50">
-                      <User className="w-4 h-4 mr-2" />
+                      <UserCircle className="w-4 h-4 mr-2" />
                       {user.username}
                     </Button>
                   </DropdownMenuTrigger>
@@ -94,6 +94,12 @@ function Navbar() {
                       <Link to="/customer-service" className="flex items-center cursor-pointer">
                         <HelpCircle className="w-4 h-4 mr-2" />
                         고객센터
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/mypage" className="flex items-center cursor-pointer">
+                        <User className="w-4 h-4 mr-2" />
+                        마이페이지
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
