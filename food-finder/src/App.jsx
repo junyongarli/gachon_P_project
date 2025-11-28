@@ -13,6 +13,7 @@ import CustomerServicePage from './pages/CustomerServicePage';
 import SettingsPage from './pages/SettingsPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import DevAdminButton from './components/DevAdminButton';
+import SignupPage from './pages/SignupPage';
 
 // 관리자 페이지 임포트
 import AdminLayout from './components/admin/AdminLayout';
@@ -44,6 +45,7 @@ function App() {
         <Route path="/notices" element={<><Navbar /><NoticesPage /></>} /> {/* 공지사항 */}
         <Route path="/customer-service" element={<><Navbar /><CustomerServicePage /></>} />
         <Route path="/settings" element={<><Navbar /><SettingsPage /></>} />
+        <Route path="/signup" element={<><Navbar /><SignupPage /></>} />
         <Route path="/mypage" element={<><Navbar /><MyPage /></>} /> {/* 마이페이지 */}
         
         {/* 관리자 전용 라우트 (중첩 라우, Navbar 없음) */}
