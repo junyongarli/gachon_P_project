@@ -4,16 +4,20 @@ const router = express.Router();
 const { Notice, Inquiry } = require('../models');
 const { protect } = require('../middleware/authMiddleware');
 
-// 1. 공지사항 목록 조회 (누구나 접근 가능)
+// 1. 공지사항 목록 조회 API (누구나 접근 가능)
 // GET /api/community/notices
 router.get('/notices', async (req, res) => {
   try {
     const notices = await Notice.findAll({
-      order: [['createdAt', 'DESC']] // 최신순 정렬
+      order: [
+        ['isImportant', 'DESC'], // 1. 중요 공지 먼저
+        ['createdAt', 'DESC']    // 2. 최신순 정렬
+      ],
     });
-    res.json({ success: true, notices });
+    res.json(notices);
   } catch (error) {
-    res.status(500).json({ success: false, message: '공지사항 조회 실패' });
+    console.error(error);
+    res.status(500).json({ message: '공지사항을 불러오는데 실패했습니다.' });
   }
 });
 

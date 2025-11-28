@@ -1,56 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bell, Calendar, User, ChevronRight, Clock } from 'lucide-react';
+import { Bell, Calendar, User, ChevronRight, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function NoticesPage() {
-  // 관리자가 발송한 공지사항 (실제로는 백엔드에서 가져옴)
-  const [notices] = useState([
-    {
-      id: 1,
-      title: '신규 이벤트 안내',
-      message: '1월 이벤트가 시작되었습니다. 많은 참여 부탁드립니다!',
-      sentDate: '2024-01-15 10:30',
-      isNew: true,
-      category: 'event',
-    },
-    {
-      id: 2,
-      title: '시스템 점검 공지',
-      message: '1월 20일 새벽 2시~4시 시스템 점검이 있습니다. 이용에 참고 부탁드립니다.',
-      sentDate: '2024-01-14 14:20',
-      isNew: true,
-      category: 'maintenance',
-    },
-    {
-      id: 3,
-      title: '서비스 이용약관 변경 안내',
-      message: '서비스 이용약관이 일부 변경되었습니다. 자세한 내용은 설정 페이지에서 확인하실 수 있습니다.',
-      sentDate: '2024-01-10 09:00',
-      isNew: false,
-      category: 'policy',
-    },
-    {
-      id: 4,
-      title: '신규 기능 업데이트',
-      message: '스마트 검색 기능이 추가되었습니다. 거리 및 경로 기반으로 맛집을 찾아보세요!',
-      sentDate: '2024-01-05 16:45',
-      isNew: false,
-      category: 'update',
-    },
-    {
-      id: 5,
-      title: '새해 인사',
-      message: '2024년 새해가 밝았습니다. 올 한 해도 맛집 추천 AI와 함께 맛있는 하루 되세요!',
-      sentDate: '2024-01-01 00:00',
-      isNew: false,
-      category: 'general',
-    },
-  ]);
-
+  const [notices, setNotices] = useState([]);
   const [selectedNotice, setSelectedNotice] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 백엔드에서 공지사항 가져오기
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const response = await fetch('/api/community/notices');
+        if (response.ok) {
+          const data = await response.json();
+          setNotices(data);
+          // (선택) 처음에 가장 최신 공지사항 하나를 자동으로 선택해두려면 아래 주석 해제
+          // if (data.length > 0) setSelectedNotice(data[0]);
+        }
+      } catch (error) {
+        console.error("공지사항 로딩 실패:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotices();
+  }, []);
 
   const getCategoryBadge = (category) => {
     const config = {
@@ -60,11 +39,16 @@ function NoticesPage() {
       update: { label: '업데이트', className: 'bg-green-100 text-green-700 border-green-200' },
       general: { label: '일반', className: 'bg-orange-100 text-orange-700 border-orange-200' },
     };
-    const { label, className } = config[category] || config.general;
+    // DB에 저장된 값이 소문자가 아닐 수도 있으므로 lowercase 처리
+    const key = category?.toLowerCase() || 'general';
+    const { label, className } = config[key] || config.general;
+    
     return <Badge className={`${className} border`}>{label}</Badge>;
   };
 
+  // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
     const now = new Date();
     const diff = now - date;
@@ -73,8 +57,25 @@ function NoticesPage() {
     if (days === 0) return '오늘';
     if (days === 1) return '어제';
     if (days < 7) return `${days}일 전`;
-    return dateString.split(' ')[0];
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD 형식
   };
+
+  // 7일 이내 게시물인지 확인 (NEW 배지용)
+  const isNewPost = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return days < 7;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-orange-50">
+        <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -100,128 +101,132 @@ function NoticesPage() {
               <Bell className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+              <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent text-left font-bold">
                 공지사항
               </h1>
-              <p className="text-gray-600 mt-1">중요한 소식과 업데이트를 확인하세요</p>
+              <p className="text-gray-600 mt-1 text-left">중요한 소식과 업데이트를 확인하세요</p>
             </div>
           </div>
         </motion.div>
 
-        {/* 공지사항 목록 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 목록 */}
+        {/* 공지사항 목록 & 상세 보기 레이아웃 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
+          
+          {/* [왼쪽] 공지사항 목록 */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-4"
+            className="space-y-4 overflow-y-auto pr-2"
           >
-            {notices.map((notice, index) => (
-              <motion.div
-                key={notice.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <Card
-                  className={`bg-white/80 backdrop-blur-sm shadow-lg border hover:shadow-xl transition-all cursor-pointer ${
-                    selectedNotice?.id === notice.id ? 'border-orange-500 border-2' : 'border-white/20'
-                  } ${notice.isNew ? 'ring-2 ring-orange-200' : ''}`}
-                  onClick={() => setSelectedNotice(notice)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        {getCategoryBadge(notice.category)}
-                        {notice.isNew && (
-                          <Badge className="bg-red-500 text-white border-none">NEW</Badge>
-                        )}
-                      </div>
-                      <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${selectedNotice?.id === notice.id ? 'rotate-90' : ''}`} />
-                    </div>
-                    
-                    <h3 className="text-lg text-gray-800 mb-2">
-                      {notice.title}
-                    </h3>
-                    
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {notice.message}
-                    </p>
-                    
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{formatDate(notice.sentDate)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>{notice.sentDate}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+            {notices.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">등록된 공지사항이 없습니다.</div>
+            ) : (
+                notices.map((notice, index) => {
+                  const isNew = isNewPost(notice.createdAt);
+                  return (
+                    <motion.div
+                      key={notice.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card
+                        className={`bg-white/80 backdrop-blur-sm shadow-md border hover:shadow-lg transition-all cursor-pointer ${
+                          selectedNotice?.id === notice.id ? 'border-orange-500 border-2 bg-orange-50/50' : 'border-white/20'
+                        } ${isNew ? 'ring-1 ring-orange-100' : ''}`}
+                        onClick={() => setSelectedNotice(notice)}
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              {getCategoryBadge(notice.category)}
+                              {isNew && (
+                                <Badge className="bg-red-500 text-white border-none hover:bg-red-600">NEW</Badge>
+                              )}
+                              {notice.isImportant && (
+                                <Badge className="bg-yellow-500 text-white border-none hover:bg-yellow-600">필독</Badge>
+                              )}
+                            </div>
+                            <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${selectedNotice?.id === notice.id ? 'rotate-90 text-orange-500' : ''}`} />
+                          </div>
+                          
+                          <h3 className={`text-lg mb-2 text-left font-semibold ${selectedNotice?.id === notice.id ? 'text-orange-700' : 'text-gray-800'}`}>
+                            {notice.title}
+                          </h3>
+                          
+                          {/* 목록에서는 내용 미리보기 (2줄 제한) */}
+                          <p className="text-sm text-gray-600 mb-3 line-clamp-2 text-left">
+                            {notice.content}
+                          </p>
+                          
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatDate(notice.createdAt)}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })
+            )}
           </motion.div>
 
-          {/* 상세 보기 */}
+          {/* [오른쪽] 상세 보기 */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="lg:sticky lg:top-8"
+            className="hidden lg:block h-full" 
+            // 모바일(lg 미만)에서는 목록만 보이고, 클릭 시 별도 처리 필요하지만 
+            // 현재 요청주신 '좌측 목록, 우측 상세' 구조는 데스크탑 기준이므로 이렇게 처리합니다.
           >
             {selectedNotice ? (
-              <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20 h-full">
-                <CardContent className="p-8 flex flex-col h-full">
-                  <div className="flex-1 overflow-y-auto">
-                    <div className="mb-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        {getCategoryBadge(selectedNotice.category)}
-                        {selectedNotice.isNew && (
-                          <Badge className="bg-red-500 text-white border-none">NEW</Badge>
-                        )}
-                      </div>
-                      
-                      <h2 className="text-2xl text-gray-800 mb-4">
-                        {selectedNotice.title}
-                      </h2>
-                      
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
-                        <div className="flex items-center gap-1">
-                          <User className="w-4 h-4" />
-                          <span>관리자</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{selectedNotice.sentDate}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="h-px bg-gradient-to-r from-orange-200 via-red-200 to-yellow-200 mb-6"></div>
-                      
-                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {selectedNotice.message}
-                      </p>
+              <Card className="bg-white/90 backdrop-blur-md shadow-xl border border-white/20 h-full overflow-hidden flex flex-col">
+                <CardContent className="p-8 flex flex-col h-full overflow-y-auto">
+                    <div className="flex items-center gap-2 mb-4">
+                      {getCategoryBadge(selectedNotice.category)}
+                      {isNewPost(selectedNotice.createdAt) && (
+                        <Badge className="bg-red-500 text-white border-none">NEW</Badge>
+                      )}
                     </div>
-                  </div>
-                  
-                  <Button
-                    onClick={() => setSelectedNotice(null)}
-                    variant="outline"
-                    className="w-full mt-6"
-                  >
-                    목록으로 돌아가기
-                  </Button>
+                    
+                    <h2 className="text-3xl font-bold text-gray-800 mb-6 text-left leading-tight">
+                      {selectedNotice.title}
+                    </h2>
+                    
+                    <div className="flex items-center gap-6 text-sm text-gray-500 mb-8 border-b border-gray-100 pb-6">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-gray-100 rounded-full">
+                            <User className="w-4 h-4" />
+                        </div>
+                        <span>관리자</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <div className="p-2 bg-gray-100 rounded-full">
+                            <Calendar className="w-4 h-4" />
+                         </div>
+                        {/* 상세 페이지에서는 날짜와 시간을 자세히 표시 */}
+                        <span>{new Date(selectedNotice.createdAt).toLocaleString('ko-KR')}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="prose max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap text-left">
+                      {selectedNotice.content}
+                    </div>
+
                 </CardContent>
               </Card>
             ) : (
-              <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20 h-full flex items-center justify-center">
+              <Card className="bg-white/60 backdrop-blur-sm border border-white/20 h-full flex items-center justify-center border-dashed border-2">
                 <CardContent className="p-12 text-center">
-                  <Bell className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                  <p className="text-xl text-gray-600 mb-2">공지사항을 선택해주세요</p>
-                  <p className="text-gray-500">왼쪽 목록에서 공지사항을 클릭하면 자세한 내용을 확인할 수 있습니다</p>
+                  <div className="bg-white p-4 rounded-full inline-block shadow-sm mb-4">
+                      <Bell className="w-12 h-12 text-orange-400" />
+                  </div>
+                  <p className="text-xl font-medium text-gray-700 mb-2">공지사항을 선택해주세요</p>
+                  <p className="text-gray-500">왼쪽 목록에서 제목을 클릭하면 상세 내용을 확인할 수 있습니다.</p>
                 </CardContent>
               </Card>
             )}
