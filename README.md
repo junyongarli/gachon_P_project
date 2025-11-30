@@ -48,7 +48,9 @@ SQL
 CREATE DATABASE food_finder_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 환경 변수 파일 (.env) 생성: food-finder-backend-node 폴더 안에 .env 파일을 만들고, 아래 내용을 자신의 환경에 맞게 채워주세요.
-
+```
+데이터베이스 구조 변경 시에 food-finder-backend-node/app.js의 sequelize.sync({ force: false })에서 force: true로 변경하고 실행하면 데이터베이스 재생성됨(변경하고 다시 false로)
+```
 __MariaDB 접속 정보__
 DB_HOST=127.0.0.1
 DB_USER=root
@@ -59,8 +61,8 @@ DB_PORT=3306
 __JWT 비밀 키__
 JWT_SECRET_KEY=a_very_long_and_secret_string_for_your_project
 
-__카카오 API 키__
-KAKAO_REST_API_KEY= # 발급받은 카카오 REST API 키
+__구글 API 키__
+GOOGLE_MAPS_API_KEY= # 발급받은 구글맵 키
 4. 프론트엔드 설정 (/food-finder)
 - 폴더 이동 및 의존성 설치:
 
@@ -72,7 +74,7 @@ npm install
 환경 변수 파일 (.env) 생성: food-finder 폴더 안에 .env 파일을 만듭니다. 변수 이름은 반드시 VITE_로 시작해야 합니다.
 
 ### 카카오맵 API 키
-VITE_KAKAO_APP_KEY= # 발급받은 카카오 JavaScript 키
+VITE_GOOGLE_MAPS_API_KEY=# 발급받은 구글맵 키
 
 ## ▶️ 애플리케이션 실행
 개발 시에는 두 개의 터미널을 열어 각각 백엔드와 프론트엔드 서버를 실행해야 합니다.
