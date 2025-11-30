@@ -3,8 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Phone, ExternalLink, Heart, Utensils, Sparkles, Trash2 } from 'lucide-react';
-import { motion } from 'motion/react';
+// [수정] Phone 제거, Star 추가
+import { MapPin, ExternalLink, Heart, Utensils, Sparkles, Trash2, Star } from 'lucide-react';
+import { motion } from 'framer-motion'; // motion/react 대신 framer-motion 사용 권장
 
 function FavoritesPage() {
   const [favorites, setFavorites] = useState([]);
@@ -57,6 +58,24 @@ function FavoritesPage() {
     }
   };
 
+  // [추가] 별점 렌더링 함수
+  const renderStars = (rating) => {
+    const score = parseFloat(rating) || 0;
+    return (
+      <div className="flex items-center">
+        <span className="font-bold text-yellow-500 mr-1 text-sm">{score.toFixed(1)}</span>
+        <div className="flex">
+          {[...Array(5)].map((_, i) => (
+            <Star
+              key={i}
+              className={`w-3 h-3 ${i < Math.round(score) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
@@ -77,17 +96,13 @@ function FavoritesPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* 그라데이션 배경 */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50"></div>
       
-      {/* 배경 장식 요소 */}
       <div className="absolute top-20 left-10 w-64 h-64 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
       <div className="absolute top-40 right-10 w-64 h-64 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
       <div className="absolute bottom-20 left-1/2 w-64 h-64 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
 
-      {/* 메인 콘텐츠 */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
-        {/* 헤더 */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -100,7 +115,7 @@ function FavoritesPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent font-bold">
                   찜한 맛집 목록
                 </h1>
                 <Sparkles className="w-6 h-6 text-yellow-500" />
@@ -115,7 +130,6 @@ function FavoritesPage() {
           )}
         </motion.div>
 
-        {/* 찜 목록 */}
         {!token ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -142,14 +156,15 @@ function FavoritesPage() {
                 <Card className="bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 border border-white/20 hover:scale-[1.02] h-full">
                   <CardContent className="p-6">
                     <div className="flex flex-col h-full">
+                      
                       {/* 상단: 식당 정보 */}
                       <div className="flex-grow">
-                        <div className="flex items-start gap-3 mb-4">
+                        <div className="flex items-start gap-3 mb-2">
                           <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-lg p-2 flex-shrink-0">
                             <Utensils className="w-5 h-5" />
                           </div>
                           <div className="flex-grow min-w-0">
-                            <h3 className="text-xl text-gray-800 mb-2 break-words">
+                            <h3 className="text-xl text-gray-800 mb-1 break-words font-bold">
                               {fav.restaurant_name}
                             </h3>
                             {fav.category && (
@@ -159,21 +174,26 @@ function FavoritesPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* [추가] 별점 및 리뷰 수 표시 */}
+                        <div className="flex items-center gap-2 mb-4 ml-11">
+                            {renderStars(fav.rating)}
+                            <span className="text-xs text-gray-500">
+                                ({fav.user_ratings_total ? fav.user_ratings_total.toLocaleString() : 0}명 참여)
+                            </span>
+                        </div>
                         
                         <div className="space-y-2 text-sm text-gray-600 mb-4">
                           <div className="flex items-start gap-2">
                             <MapPin className="w-4 h-4 flex-shrink-0 text-orange-500 mt-0.5" />
                             <span className="break-words">{fav.address || '주소 정보 없음'}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 flex-shrink-0 text-orange-500" />
-                            <span>{fav.phone || '전화번호 정보 없음'}</span>
-                          </div>
+                          {/* 전화번호 표시는 제거됨 */}
                         </div>
                       </div>
 
                       {/* 하단: 버튼들 */}
-                      <div className="flex gap-2 mt-4">
+                      <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
                         {fav.url && (
                           <a href={fav.url} target="_blank" rel="noopener noreferrer" className="flex-1">
                             <Button
@@ -181,7 +201,7 @@ function FavoritesPage() {
                               size="sm"
                               className="w-full hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300 transition-colors"
                             >
-                              상세보기
+                              지도 보기
                               <ExternalLink className="w-3 h-3 ml-1" />
                             </Button>
                           </a>
@@ -226,7 +246,6 @@ function FavoritesPage() {
         )}
       </div>
 
-      {/* CSS 애니메이션 */}
       <style>{`
         @keyframes blob {
           0%, 100% { transform: translate(0, 0) scale(1); }

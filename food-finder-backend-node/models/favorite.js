@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
       autoIncrement: true,
     },
     restaurant_id: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(255), 
       allowNull: false,
     },
     restaurant_name: {
@@ -20,14 +20,25 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(100),
     },
     address: {
-      type: DataTypes.STRING(200),
+      type: DataTypes.STRING(255), 
     },
+    // phone, url은 그대로 유지하되, 화면에서만 안 보여주면 됩니다.
     phone: {
       type: DataTypes.STRING(50),
     },
     url: {
       type: DataTypes.STRING(255),
     },
+    // [추가됨] 별점 (소수점 저장)
+    rating: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0.0,
+    },
+    // [추가됨] 총 리뷰 수 (정수)
+    user_ratings_total: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    }
   });
 
   return Favorite;
