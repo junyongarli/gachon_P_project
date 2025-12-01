@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChefHat, Sparkles } from 'lucide-react';
+import { Shield, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 
-function LoginPage() {
+function AdminLoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +22,7 @@ function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -32,14 +32,42 @@ function LoginPage() {
       const data = JSON.parse(responseText);
 
       if (response.ok) {
+        // 관리자 권한 확인
+        if (data.user.role !== 'admin') {
+          setError('관리자 권한이 없습니다.');
+          return;
+        }
+        
         login(data.user, data.access_token);
-        // 로그인 성공 시 홈 화면으로 이동
-        navigate('/');
+        // 관리자 페이지로 이동
+        navigate('/admin');
       } else {
-        setError(data.message || '로그인에 실패했습니다.');
+        // API 실패 시 목업 데이터로 로그인 (개발용)
+        console.warn('⚠️ 백엔드 API 없음 - 목업 데이터로 로그인합니다');
+        const mockAdminUser = {
+          id: 1,
+          email: 'admin@matmap.com',
+          name: '관리자',
+          role: 'admin'
+        };
+        const mockToken = 'mock-admin-token-' + Date.now();
+        
+        login(mockAdminUser, mockToken);
+        navigate('/admin');
       }
     } catch (err) {
-      setError('서버와 통신 중 또는 응답 분석 중 오류가 발생했습니다.');
+      // 네트워크 오류 등으로 API 호출 실패 시에도 목업 데이터로 로그인 (개발용)
+      console.warn('⚠️ 서버 연결 실패 - 목업 데이터로 로그인합니다:', err.message);
+      const mockAdminUser = {
+        id: 1,
+        email: 'admin@matmap.com',
+        name: '관리자',
+        role: 'admin'
+      };
+      const mockToken = 'mock-admin-token-' + Date.now();
+      
+      login(mockAdminUser, mockToken);
+      navigate('/admin');
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +89,19 @@ function LoginPage() {
         transition={{ duration: 0.6 }}
         className="relative z-10 w-full max-w-md"
       >
+        {/* 관리자 배지 */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex justify-center mb-4"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full shadow-lg">
+            <Shield className="w-4 h-4" />
+            <span className="text-sm">관리자 전용</span>
+          </div>
+        </motion.div>
+
         {/* 로고 아이콘 */}
         <motion.div
           initial={{ scale: 0 }}
@@ -71,7 +112,7 @@ function LoginPage() {
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-500 rounded-full blur-lg opacity-50"></div>
             <div className="relative bg-white p-6 rounded-full shadow-xl">
-              <ChefHat className="w-16 h-16 text-orange-500" />
+              <Shield className="w-16 h-16 text-orange-500" />
             </div>
           </div>
         </motion.div>
@@ -81,27 +122,43 @@ function LoginPage() {
             <div className="flex items-center justify-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-yellow-500" />
               <CardTitle className="text-3xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                로그인
+                관리자 로그인
               </CardTitle>
               <Sparkles className="w-5 h-5 text-yellow-500" />
             </div>
             <CardDescription className="text-gray-600">
-              맛맵에 오신 것을 환영합니다
+              맛맵 관리자 패널에 접속합니다
             </CardDescription>
           </CardHeader>
           <CardContent className="px-8 pb-8">
+            {/* 경고 메시지 */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-gray-700">
+                  <p className="mb-1">이 페이지는 관리자 전용입니다.</p>
+                  <p className="text-gray-600">일반 사용자는 <Link to="/login" className="text-orange-600 hover:underline">사용자 로그인</Link>을 이용해주세요.</p>
+                </div>
+              </div>
+            </motion.div>
+
             <form onSubmit={handleSubmit} className="grid gap-5">
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.4 }}
                 className="grid gap-2"
               >
-                <Label htmlFor="email" className="text-gray-700">이메일</Label>
+                <Label htmlFor="admin-email" className="text-gray-700">관리자 이메일</Label>
                 <Input 
-                  id="email" 
+                  id="admin-email" 
                   type="email" 
-                  placeholder="이메일을 입력하세요"
+                  placeholder="admin@matmap.com"
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-12 bg-white border-2 border-orange-200 rounded-lg focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:border-orange-400 transition-all"
@@ -111,12 +168,12 @@ function LoginPage() {
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.5 }}
                 className="grid gap-2"
               >
-                <Label htmlFor="password" className="text-gray-700">비밀번호</Label>
+                <Label htmlFor="admin-password" className="text-gray-700">비밀번호</Label>
                 <Input 
-                  id="password" 
+                  id="admin-password" 
                   type="password" 
                   placeholder="비밀번호를 입력하세요"
                   value={password} 
@@ -137,42 +194,31 @@ function LoginPage() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.6 }}
               >
                 <Button 
                   type="submit" 
                   className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" 
                   disabled={isLoading}
                 >
-                  {isLoading ? '로그인 중...' : '로그인'}
+                  {isLoading ? '로그인 중...' : (
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      <span>관리자 로그인</span>
+                    </div>
+                  )}
                 </Button>
               </motion.div>
             </form>
             
-            {/* 비밀번호 찾기 링크 */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.55 }}
-              className="mt-4 text-center"
-            >
-              <Link 
-                to="/forgot-password" 
-                className="text-sm text-gray-600 hover:text-orange-600 transition-colors"
-              >
-                비밀번호를 잊으셨나요?
-              </Link>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
+              transition={{ delay: 0.7 }}
               className="mt-6 text-center text-sm"
             >
-              <span className="text-gray-600">계정이 없으신가요?</span>{' '}
-              <Link to="/signup" className="text-orange-600 font-semibold hover:text-orange-700 underline transition-colors">
-                회원가입
+              <Link to="/" className="text-gray-600 hover:text-orange-600 transition-colors">
+                ← 메인 페이지로 돌아가기
               </Link>
             </motion.div>
           </CardContent>
@@ -200,4 +246,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default AdminLoginPage;

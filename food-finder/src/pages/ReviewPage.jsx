@@ -12,7 +12,7 @@ function ReviewPage() {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // 카카오맵에서 장소 검색
+  // 구글맵에서 장소 검색
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       alert('검색어를 입력해주세요.');
@@ -21,14 +21,49 @@ function ReviewPage() {
 
     setIsSearching(true);
     
-    // 카카오 장소 검색 API
-    const ps = new window.kakao.maps.services.Places();
-    
-    ps.keywordSearch(searchQuery, (data, status) => {
+    // 구글맵 Places API 사용
+    if (!window.google || !window.google.maps) {
+      // 구글맵 스크립트가 로드되지 않았다면 로드
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = () => performSearch();
+      document.head.appendChild(script);
+    } else {
+      performSearch();
+    }
+  };
+
+  const performSearch = () => {
+    // 서울 중심으로 검색 (필요시 사용자 위치로 변경 가능)
+    const seoulCenter = new window.google.maps.LatLng(37.566826, 126.9786567);
+    const map = new window.google.maps.Map(document.createElement('div'));
+    const service = new window.google.maps.places.PlacesService(map);
+
+    const request = {
+      location: seoulCenter,
+      radius: '50000', // 50km 반경
+      query: searchQuery,
+      type: ['restaurant', 'cafe', 'food'],
+    };
+
+    service.textSearch(request, (results, status) => {
       setIsSearching(false);
       
-      if (status === window.kakao.maps.services.Status.OK) {
-        setSearchResults(data.slice(0, 10)); // 상위 10개만
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+        // 구글맵 결과를 기존 형식에 맞게 변환
+        const formattedResults = results.slice(0, 10).map(place => ({
+          id: place.place_id,
+          place_name: place.name,
+          category_name: place.types ? place.types.join(' > ') : '음식점',
+          address_name: place.formatted_address || place.vicinity,
+          road_address_name: place.formatted_address,
+          phone: place.formatted_phone_number || '',
+          x: place.geometry.location.lng(),
+          y: place.geometry.location.lat(),
+          rating: place.rating,
+        }));
+        setSearchResults(formattedResults);
         setSelectedPlace(null);
       } else {
         alert('검색 결과가 없습니다.');
@@ -37,9 +72,9 @@ function ReviewPage() {
     });
   };
 
-  // 카카오맵에서 리뷰 보기 (새 창에서 열기)
-  const openKakaoMapReview = (place) => {
-    const url = `https://map.kakao.com/link/to/${place.place_name},${place.y},${place.x}`;
+  // 구글맵에서 리뷰 보기 (새 창에서 열기)
+  const openGoogleMapReview = (place) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.place_name)}&query_place_id=${place.id}`;
     window.open(url, '_blank');
   };
 
@@ -73,9 +108,9 @@ function ReviewPage() {
             </div>
             <div>
               <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                카카오맵 리뷰 조회
+                구글맵 리뷰 조회
               </h1>
-              <p className="text-gray-600 mt-1">카카오맵에서 맛집 리뷰를 확인하세요</p>
+              <p className="text-gray-600 mt-1">구글맵에서 맛집 리뷰를 확인하세요</p>
             </div>
           </div>
         </motion.div>
@@ -123,7 +158,7 @@ function ReviewPage() {
           >
             <h2 className="text-2xl text-gray-800 mb-4">검색 결과 ({searchResults.length}개)</h2>
             
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {searchResults.map((place, index) => (
                 <motion.div
                   key={place.id}
@@ -167,12 +202,12 @@ function ReviewPage() {
                           <Button
                             onClick={(e) => {
                               e.stopPropagation();
-                              openKakaoMapReview(place);
+                              openGoogleMapReview(place);
                             }}
                             className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
                           >
                             <ExternalLink className="w-4 h-4 mr-2" />
-                            카카오맵에서 리뷰 보기
+                            구글맵에서 리뷰 보기
                           </Button>
                         </div>
                       </div>
@@ -195,7 +230,7 @@ function ReviewPage() {
               <CardContent className="p-12 text-center">
                 <Search className="w-16 h-16 mx-auto text-gray-400 mb-4" />
                 <p className="text-xl text-gray-600 mb-2">맛집을 검색해보세요</p>
-                <p className="text-gray-500">카카오맵의 리뷰를 확인할 수 있습니다</p>
+                <p className="text-gray-500">구글맵의 리뷰를 확인할 수 있습니다</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -213,10 +248,10 @@ function ReviewPage() {
               <div className="flex items-start gap-3">
                 <MessageSquare className="w-6 h-6 text-orange-600 mt-1 flex-shrink-0" />
                 <div>
-                  <h3 className="text-lg text-gray-800 mb-2">카카오맵 리뷰란?</h3>
+                  <h3 className="text-lg text-gray-800 mb-2">구글맵 리뷰란?</h3>
                   <p className="text-gray-700 text-sm leading-relaxed">
-                    카카오맵에서 실제 방문자들이 남긴 리뷰와 평점을 확인할 수 있습니다. 
-                    "카카오맵에서 리뷰 보기" 버튼을 클릭하면 해당 맛집의 상세 정보와 리뷰를 확인할 수 있습니다.
+                    구글맵에서 실제 방문자들이 남긴 리뷰와 평점을 확인할 수 있습니다. 
+                    "구글맵에서 리뷰 보기" 버튼을 클릭하면 해당 맛집의 상세 정보와 리뷰를 확인할 수 있습니다.
                   </p>
                 </div>
               </div>

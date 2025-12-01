@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import QuizPage from './pages/QuizPage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import AdminRoute from './components/AdminRoute';
 import FavoritesPage from './pages/FavoritesPage';
 import SearchPage from './pages/SearchPage';
@@ -17,11 +18,10 @@ import DevAdminButton from './components/DevAdminButton';
 // 관리자 페이지 임포트
 import AdminLayout from './components/admin/AdminLayout';
 import AdminUsers from './pages/admin/AdminUsers';
-import AdminNotifications from './pages/admin/AdminNotifications';
-import AdminAI from './pages/admin/AdminAI';
-import AdminCommunity from './pages/admin/AdminCommunity';
-// import AdminStatistics from './pages/admin/AdminStatistics'; // 일단 보류
-import AdminSettings from './pages/admin/AdminSettings';
+import AdminSystem from './pages/admin/AdminSystem';
+import AdminNotices from './pages/admin/AdminNotices';
+import AdminInquiries from './pages/admin/AdminInquiries';
+import AdminLoginPage from './pages/admin/AdminLoginPage';
 import MyPage from './pages/MyPage'; // 마이페이지
 
 function App() {
@@ -36,6 +36,7 @@ function App() {
         <Route path="/" element={<><Navbar /><HomePage /></>} />
         <Route path="/quiz" element={<><Navbar /><QuizPage /></>} />
         <Route path="/login" element={<><Navbar /><LoginPage /></>} />
+        <Route path="/signup" element={<><Navbar /><SignupPage /></>} />
         <Route path="/forgot-password" element={<><Navbar /><ForgotPasswordPage /></>} />
         <Route path="/favorites" element={<><Navbar /><FavoritesPage /></>} />
         <Route path="/search" element={<><Navbar /><SearchPage /></>} />
@@ -46,16 +47,17 @@ function App() {
         <Route path="/settings" element={<><Navbar /><SettingsPage /></>} />
         <Route path="/mypage" element={<><Navbar /><MyPage /></>} /> {/* 마이페이지 */}
         
-        {/* 관리자 전용 라우트 (중첩 라우, Navbar 없음) */}
+        {/* 관리자 인증 페이지 (Navbar 없음) */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        
+        {/* 관리자 전용 라우트 (중첩 라우트, Navbar 없음) */}
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminUsers />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="notifications" element={<AdminNotifications />} />
-            <Route path="ai" element={<AdminAI />} />
-            <Route path="community" element={<AdminCommunity />} />
-            {/* <Route path="statistics" element={<AdminStatistics />} /> */}
-            <Route path="settings" element={<AdminSettings />} />
+            <Route path="system" element={<AdminSystem />} />
+            <Route path="community/notices" element={<AdminNotices />} />
+            <Route path="community/inquiries" element={<AdminInquiries />} />
           </Route>
         </Route>
       </Routes>

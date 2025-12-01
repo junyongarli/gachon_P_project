@@ -2,7 +2,7 @@
 
 const express = require('express');
 const axios = require('axios');
-const { UserPreference } = require('../models');
+
 const router = express.Router();
 
 // [수정됨] 키워드를 종류(type)와 우선순위에 따라 재구성

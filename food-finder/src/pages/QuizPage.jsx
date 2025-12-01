@@ -17,46 +17,61 @@ const questions = [
   { id: 8, question: "누구와 함께 드시나요?", options: [{ text: "혼밥하기 좋은 곳", value: "alone" }, { text: "여럿이 가기 좋은 곳", value: "group" }] }
 ];
 
-const KakaoMap = ({ restaurants, userLocation }) => {
+const GoogleMap = ({ restaurants, userLocation }) => {
   useEffect(() => {
-    const kakaoMapScript = document.createElement('script');
-    kakaoMapScript.async = false;
-    kakaoMapScript.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${import.meta.env.VITE_KAKAO_APP_KEY}&autoload=false`;
-    document.head.appendChild(kakaoMapScript);
+    // 구글맵 스크립트 로드
+    const googleMapScript = document.createElement('script');
+    googleMapScript.async = true;
+    googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+    document.head.appendChild(googleMapScript);
 
-    const onLoadKakaoAPI = () => {
-      if (window.kakao && window.kakao.maps) {
-        window.kakao.maps.load(() => {
-          const container = document.getElementById('map');
-          if (!container) return;
+    const onLoadGoogleAPI = () => {
+      if (window.google && window.google.maps) {
+        const container = document.getElementById('map');
+        if (!container) return;
 
-          const mapCenter = userLocation
-            ? new window.kakao.maps.LatLng(userLocation.latitude, userLocation.longitude)
-            : restaurants.length > 0
-            ? new window.kakao.maps.LatLng(restaurants[0].y, restaurants[0].x)
-            : new window.kakao.maps.LatLng(37.566826, 126.9786567);
-          
-          const options = { center: mapCenter, level: 5 };
-          const map = new window.kakao.maps.Map(container, options);
+        // 지도 중심 설정
+        const mapCenter = userLocation
+          ? { lat: userLocation.latitude, lng: userLocation.longitude }
+          : restaurants.length > 0
+          ? { lat: restaurants[0].y, lng: restaurants[0].x }
+          : { lat: 37.566826, lng: 126.9786567 }; // 서울 시청
+        
+        // 구글맵 생성
+        const map = new window.google.maps.Map(container, {
+          center: mapCenter,
+          zoom: 14,
+        });
 
-          restaurants.forEach(restaurant => {
-            const markerPosition = new window.kakao.maps.LatLng(restaurant.y, restaurant.x);
-            const marker = new window.kakao.maps.Marker({ position: markerPosition, map: map });
-            const iwContent = `<div style="padding:5px; font-size:12px; max-width:200px; text-align:center;">${restaurant.name}</div>`;
-            const infowindow = new window.kakao.maps.InfoWindow({ content: iwContent });
-            window.kakao.maps.event.addListener(marker, 'mouseover', () => infowindow.open(map, marker));
-            window.kakao.maps.event.addListener(marker, 'mouseout', () => infowindow.close());
+        // 마커와 인포윈도우 추가
+        restaurants.forEach(restaurant => {
+          const marker = new window.google.maps.Marker({
+            position: { lat: restaurant.y, lng: restaurant.x },
+            map: map,
+            title: restaurant.name,
+          });
+
+          const infowindow = new window.google.maps.InfoWindow({
+            content: `<div style="padding:5px; font-size:12px; max-width:200px; text-align:center;">${restaurant.name}</div>`,
+          });
+
+          marker.addListener('mouseover', () => {
+            infowindow.open(map, marker);
+          });
+
+          marker.addListener('mouseout', () => {
+            infowindow.close();
           });
         });
       }
     };
 
-    kakaoMapScript.addEventListener('load', onLoadKakaoAPI);
+    googleMapScript.addEventListener('load', onLoadGoogleAPI);
 
     return () => {
-      kakaoMapScript.removeEventListener('load', onLoadKakaoAPI);
-      if (document.head.contains(kakaoMapScript)) {
-        document.head.removeChild(kakaoMapScript);
+      googleMapScript.removeEventListener('load', onLoadGoogleAPI);
+      if (document.head.contains(googleMapScript)) {
+        document.head.removeChild(googleMapScript);
       }
     };
   }, [restaurants, userLocation]);
@@ -208,7 +223,7 @@ function QuizPage() {
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Sparkles className="w-6 h-6 text-yellow-500" />
                 <CardTitle className="text-3xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                  맛집 추천 AI
+                  맛맵
                 </CardTitle>
                 <Sparkles className="w-6 h-6 text-yellow-500" />
               </div>
@@ -445,7 +460,7 @@ function QuizPage() {
                     {restaurants.length}개 발견
                   </Badge>
                 </div>
-                <KakaoMap restaurants={restaurants} userLocation={userLocation} />
+                <GoogleMap restaurants={restaurants} userLocation={userLocation} />
               </div>
             </motion.div>
 

@@ -43,7 +43,7 @@ function NoticesPage() {
     {
       id: 5,
       title: '새해 인사',
-      message: '2024년 새해가 밝았습니다. 올 한 해도 맛집 추천 AI와 함께 맛있는 하루 되세요!',
+      message: '2024년 새해가 밝았습니다. 올 한 해도 맛맵과 함께 맛있는 하루 되세요!',
       sentDate: '2024-01-01 00:00',
       isNew: false,
       category: 'general',
