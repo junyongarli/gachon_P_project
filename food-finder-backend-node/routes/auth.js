@@ -53,7 +53,9 @@ router.post('/login', async (req, res) => {
       // 401 Unauthorized: 인증 실패
       return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
-
+    if (user.status === 'suspended') {
+      return res.status(403).json({ message: '정지된 계정입니다. 고객센터에 문의하세요.' });
+    }
     // 3. JWT 토큰 생성
     const token = jwt.sign(
       { id: user.id, role: user.role }, // 토큰에 담을 정보

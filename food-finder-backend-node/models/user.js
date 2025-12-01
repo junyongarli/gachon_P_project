@@ -27,5 +27,10 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 'user',
     },
+    status: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'active', // 'active'(활성), 'suspended'(정지)
+    },
   });
 };

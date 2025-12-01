@@ -7,6 +7,8 @@ const authRouter = require('./routes/auth');
 const restaurantRouter = require('./routes/restaurant');
 const favoritesRouter = require('./routes/favorites');
 const adminRouter = require('./routes/admin');
+const communityRouter = require('./routes/community');
+//const personalizationRouter = require('./routes/personalization'); 
 
 const app = express();
 
@@ -18,6 +20,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/restaurant', restaurantRouter);
 app.use('/api/favorites', favoritesRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/community', communityRouter);
+//app.use('/api/personalization', personalizationRouter);
 
 const PORT = process.env.PORT || 5000;
 

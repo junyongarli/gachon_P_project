@@ -33,7 +33,13 @@ Object.keys(db).forEach(modelName => {
 db.User.hasMany(db.Favorite, { foreignKey: 'userId', as: 'favorites' });
 db.Favorite.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
 
+db.Notice = require('./notice')(sequelize, Sequelize);
+db.Inquiry = require('./inquiry')(sequelize, Sequelize);
+
+db.User.hasMany(db.Inquiry, { foreignKey: 'userId', as: 'inquiries' });
+db.Inquiry.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
+
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
-module.exports = db;
+module.exports = db

@@ -2,7 +2,7 @@
 
 const express = require('express');
 const axios = require('axios');
-
+const { UserPreference } = require('../models');
 const router = express.Router();
 
 // [수정됨] 키워드를 종류(type)와 우선순위에 따라 재구성
@@ -32,27 +32,33 @@ const FOOD_KEYWORDS = {
     'group':    { type: 'style', keywords: ['단체', '모임'] }
 };
 
-// 카카오 API 검색을 수행하는 헬퍼 함수 (변경 없음)
-const performKakaoSearch = async (params, apiKey) => {
-    const url = 'https://dapi.kakao.com/v2/local/search/keyword.json';
-    const headers = { 'Authorization': `KakaoAK ${apiKey}` };
-    console.log("🔍 카카오 API 요청:", params);
-    const response = await axios.get(url, { headers, params });
+// 구글 API 검색을 수행하는 헬퍼 함수 (변경 없음)
+const performGoogleSearch = async (query, apiKey, location) => {
+    const url = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
+    const params = {
+        query: query,
+        key: apiKey,
+        language: 'ko', // 한국어 결과 요청
+        // location이 있으면 해당 위치 주변 검색 (bias)
+        ...(location ? { location: `${location.latitude},${location.longitude}`, radius: 1500 } : {})
+    };
+    
+    console.log("🔍 Google API 요청:", params.query);
+    const response = await axios.get(url, { params });
     return response.data;
 };
 
-// [수정됨] 맛집 검색 API (/api/restaurant/search)
 router.post('/search', async (req, res) => {
     try {
-        const kakaoApiKey = process.env.KAKAO_REST_API_KEY;
-        if (!kakaoApiKey) {
-            return res.status(500).json({ success: false, message: '서버에 카카오 API 키가 설정되지 않았습니다.' });
+        // [변경] 환경변수 키 이름 변경 (KAKAO -> GOOGLE)
+        const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+        if (!googleApiKey) {
+            return res.status(500).json({ success: false, message: '서버에 Google API 키가 없습니다.' });
         }
 
         const { answers, location } = req.body;
-        console.log("백엔드가 프론트로부터 받은 데이터:", req.body);
 
-        // 1. 답변을 종류별로 분류
+        // 1~3. 키워드 조합 로직은 기존과 동일 (생략 가능하나 흐름상 유지)
         const categorized = { cuisine: [], ingredient: [], flavor: [] };
         answers.forEach(answer => {
             const keywordInfo = FOOD_KEYWORDS[answer];
@@ -61,62 +67,81 @@ router.post('/search', async (req, res) => {
             }
         });
 
-        // 2. 우선순위에 따라 검색어 조합 (종류 > 재료 > 맛)
         const queryParts = [];
         if (categorized.cuisine.length > 0)   queryParts.push(categorized.cuisine[0]);
         if (categorized.ingredient.length > 0) queryParts.push(categorized.ingredient[0]);
         if (categorized.flavor.length > 0)     queryParts.push(categorized.flavor[0]);
         
-        // 3. 최종 검색어 생성
-        const finalQuery = queryParts.join(' ');
+        const finalQuery = queryParts.join(' ') || '맛집';
 
-        let params = { size: 10, category_group_code: 'FD6' };
-        if (location?.latitude && location?.longitude) {
-            params = {
-                ...params,
-                x: String(location.longitude),
-                y: String(location.latitude),
-                radius: 3000,
-                sort: 'distance'
+        // [변경] Google API 호출
+        let result = await performGoogleSearch(finalQuery, googleApiKey, location);
+
+        // 4. 결과가 없으면 재검색하는 로직 (Google API에 맞춰 로직 재사용)
+        if (result.results.length === 0 && queryParts.length > 1) {
+            const fallbackQuery = queryParts.slice(0, 2).join(' ');
+            result = await performGoogleSearch(fallbackQuery, googleApiKey, location);
+        }
+
+        // 5. [중요] Google 응답 포맷을 프론트엔드가 쓰던 형식으로 변환
+        let restaurants = result.results.map(item => {
+            // 사진 참조값 추출 (첫 번째 사진 사용)
+            const photoReference = item.photos && item.photos.length > 0 
+                ? item.photos[0].photo_reference 
+                : null;
+
+            return {
+                id: item.place_id,
+                name: item.name,
+                category: item.types ? item.types[0].replace(/_/g, ' ') : '식당',
+                address: item.formatted_address,
+                x: item.geometry.location.lng,
+                y: item.geometry.location.lat,
+                url: `https://www.google.com/maps/place/?q=place_id:${item.place_id}`,
+                
+                // 별점 및 리뷰 수
+                rating: item.rating || 0, // 없으면 0점
+                user_ratings_total: item.user_ratings_total || 0,
+                
+                // 사진 참조 코드 (URL은 프론트에서 만듦)
+                photo_reference: photoReference
             };
-        }
-        params.query = finalQuery || '맛집'; // 조합된 검색어가 없으면 '맛집'으로 검색
-
-        let result = await performKakaoSearch(params, kakaoApiKey);
-
-        // 4. (선택적) 1차 검색 결과가 없으면, 더 넓은 범위로 2차 검색
-        if (result.documents.length === 0 && queryParts.length > 1) {
-            console.log("1차 검색 결과 없음. 우선순위 높은 키워드로 2차 검색 시도...");
-            const fallbackQuery = queryParts.slice(0, 2).join(' '); // 우선순위 높은 2개 키워드만 사용
-            params.query = fallbackQuery;
-            result = await performKakaoSearch(params, kakaoApiKey);
-        }
-
-        if (result.documents.length === 0 && queryParts.length > 0) {
-            console.log("2차 검색 결과 없음. 3차 검색 시도...");
-            const finalQuery = queryParts[0]; // 가장 중요한 키워드 하나만 사용
-            params.query = finalQuery;
-            result = await performKakaoSearch(params, kakaoApiKey);
-        }
-        // 5. 최종 결과 포맷팅
-        const restaurants = result.documents.map(item => ({
-            id: item.id,
-            name: item.place_name,
-            category: item.category_name,
-            address: item.address_name,
-            phone: item.phone,
-            distance: item.distance ? `${item.distance}m` : '알 수 없음',
-            url: item.place_url,
-            x: item.x,
-            y: item.y,
-        }));
+        });
         
         res.json({ success: true, restaurants });
 
     } catch (error) {
-        console.error('카카오 API 검색 오류:', error.response ? error.response.data : error.message);
+        console.error('Google API 검색 오류:', error.response ? error.response.data : error.message);
         res.status(500).json({ success: false, message: '맛집 검색 중 오류가 발생했습니다.' });
     }
 });
+// [추가] 구글 이미지 프록시 (백엔드 키로 이미지를 대신 가져오는 역할)
+router.get('/image/:photo_reference', async (req, res) => {
+    try {
+        const photoReference = req.params.photo_reference;
+        const googleApiKey = process.env.GOOGLE_MAPS_API_KEY; // 제한 없는 백엔드 키 사용
 
+        if (!photoReference || !googleApiKey) {
+            return res.status(400).send('Bad Request');
+        }
+
+        const url = 'https://maps.googleapis.com/maps/api/place/photo';
+        
+        // 구글 서버에서 이미지를 받아와서 -> 프론트엔드로 전달 (Stream)
+        const response = await axios.get(url, {
+            params: {
+                maxwidth: 400,
+                photoreference: photoReference,
+                key: googleApiKey
+            },
+            responseType: 'stream'
+        });
+
+        response.data.pipe(res);
+
+    } catch (error) {
+        console.error('이미지 가져오기 실패:', error.message);
+        res.status(404).send('Image not found');
+    }
+});
 module.exports = router;
