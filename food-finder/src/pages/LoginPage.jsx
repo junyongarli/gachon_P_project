@@ -86,7 +86,7 @@ function LoginPage() {
               <Sparkles className="w-5 h-5 text-yellow-500" />
             </div>
             <CardDescription className="text-gray-600">
-              맛맵에 오신 것을 환영합니다
+              맛집 추천 AI에 오신 것을 환영합니다
             </CardDescription>
           </CardHeader>
           <CardContent className="px-8 pb-8">

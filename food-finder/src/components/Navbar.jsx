@@ -29,7 +29,7 @@ function Navbar() {
               <ChefHat className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-              맛맵
+              맛집 추천 AI
             </span>
           </Link>
 

@@ -45,7 +45,7 @@ function HomePage() {
             <div className="flex items-center justify-center gap-3 mb-4">
               <Sparkles className="w-8 h-8 text-yellow-500" />
               <h1 className="text-6xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                맛맵
+                맛집 추천 AI
               </h1>
               <Sparkles className="w-8 h-8 text-yellow-500" />
             </div>
@@ -122,7 +122,7 @@ function HomePage() {
                   <div>
                     <h3 className="text-2xl text-gray-800 mb-1">스마트 검색</h3>
                     <p className="text-gray-600">
-                      AI와 대화하며 주변 맛집 찾기!
+                      AI와 대화하며 거리·경로 확인
                     </p>
                   </div>
                 </div>

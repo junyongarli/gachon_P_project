@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,47 +10,42 @@ import { motion } from 'motion/react';
 import { useAuth } from '@/contexts/AuthContext';
 
 function CustomerServicePage() {
-  const { user } = useAuth();
+  const { token, user } = useAuth(); // token도 함께 가져옵니다.
 
-  // 공지사항
-  const [notices] = useState([
-    {
-      id: 1,
-      title: '서비스 업데이트 안내 (v2.0)',
-      content: '새로운 기능이 추가되었습니다. AI 추천 알고리즘이 개선되어 더욱 정확한 맛집 추천이 가능합니다.',
-      date: '2024-01-20',
-      isNew: true,
-    },
-    {
-      id: 2,
-      title: '설날 연휴 고객센터 운영 안내',
-      content: '설날 연휴 기간(2024.02.09~02.11) 고객센터 운영이 일시 중단됩니다.',
-      date: '2024-01-18',
-      isNew: false,
-    },
-    {
-      id: 3,
-      title: '개인정보 처리방침 변경 안내',
-      content: '개인정보 처리방침이 일부 변경되었습니다. 자세한 내용은 본문을 확인해주세요.',
-      date: '2024-01-15',
-      isNew: false,
-    },
-  ]);
+  // --- 1. 공지사항 (백엔드 연동) ---
+  const [notices, setNotices] = useState([]);
 
-  // 문의하기
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const res = await fetch('/api/community/notices');
+        const data = await res.json();
+        if (data.success) {
+          // 백엔드 데이터를 UI에 맞게 변환
+          const formattedNotices = data.notices.map(n => ({
+            id: n.id,
+            title: n.title,
+            content: n.content,
+            date: new Date(n.createdAt).toLocaleDateString(),
+            isNew: (new Date() - new Date(n.createdAt)) / (1000 * 60 * 60 * 24) < 7 // 7일 이내면 NEW 뱃지
+          }));
+          setNotices(formattedNotices);
+        }
+      } catch (error) {
+        console.error("공지사항 로딩 실패:", error);
+      }
+    };
+    fetchNotices();
+  }, []);
+
+  // --- 2. 문의하기 (백엔드 연동) ---
   const [inquiry, setInquiry] = useState({
     title: '',
     content: '',
   });
 
-  // 피드백
-  const [feedback, setFeedback] = useState({
-    category: 'general',
-    content: '',
-  });
-
-  const handleInquirySubmit = () => {
-    if (!user) {
+  const handleInquirySubmit = async () => {
+    if (!token) {
       alert('로그인이 필요한 기능입니다.');
       return;
     }
@@ -60,10 +55,37 @@ function CustomerServicePage() {
       return;
     }
 
-    // TODO: API 연동
-    alert('문의가 접수되었습니다. 빠른 시일 내에 답변드리겠습니다.');
-    setInquiry({ title: '', content: '' });
+    try {
+      const res = await fetch('/api/community/inquiries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          category: 'service', // 기본 카테고리 (필요 시 선택 UI 추가 가능)
+          title: inquiry.title,
+          content: inquiry.content
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('문의가 접수되었습니다. 빠른 시일 내에 답변드리겠습니다.');
+        setInquiry({ title: '', content: '' });
+      } else {
+        alert(data.message || '문의 접수에 실패했습니다.');
+      }
+    } catch (error) {
+      alert('서버 오류가 발생했습니다.');
+    }
   };
+
+  // --- 3. 피드백 (기존 로직 유지) ---
+  const [feedback, setFeedback] = useState({
+    category: 'general',
+    content: '',
+  });
 
   const handleFeedbackSubmit = () => {
     if (!feedback.content.trim()) {
@@ -71,13 +93,15 @@ function CustomerServicePage() {
       return;
     }
 
-    // TODO: API 연동
+    // 피드백은 아직 API가 없으므로 알림만 표시 (추후 연동 가능)
+    console.log('Feedback:', feedback);
     alert('소중한 피드백 감사합니다! 서비스 개선에 적극 반영하겠습니다.');
     setFeedback({ category: 'general', content: '' });
   };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      {/* ... (이하 JSX 코드는 원본과 100% 동일하므로 그대로 유지됩니다) ... */}
       {/* 그라데이션 배경 */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50"></div>
       
@@ -124,41 +148,45 @@ function CustomerServicePage() {
             {/* 공지사항 탭 */}
             <TabsContent value="notice">
               <div className="space-y-4">
-                {notices.map((notice, index) => (
-                  <motion.div
-                    key={notice.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20 hover:shadow-xl transition-all cursor-pointer">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="text-xl text-gray-800">
-                                {notice.title}
-                              </h3>
-                              {notice.isNew && (
-                                <Badge className="bg-red-500 text-white border-none">
-                                  NEW
-                                </Badge>
-                              )}
+                {notices.length > 0 ? (
+                  notices.map((notice, index) => (
+                    <motion.div
+                      key={notice.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20 hover:shadow-xl transition-all cursor-pointer">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="text-xl text-gray-800">
+                                  {notice.title}
+                                </h3>
+                                {notice.isNew && (
+                                  <Badge className="bg-red-500 text-white border-none">
+                                    NEW
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-gray-600 mb-3 leading-relaxed">
+                                {notice.content}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <Calendar className="w-4 h-4" />
+                                <span>{notice.date}</span>
+                              </div>
                             </div>
-                            <p className="text-gray-600 mb-3 leading-relaxed">
-                              {notice.content}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <Calendar className="w-4 h-4" />
-                              <span>{notice.date}</span>
-                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
                           </div>
-                          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-gray-500">등록된 공지사항이 없습니다.</div>
+                )}
               </div>
             </TabsContent>
 

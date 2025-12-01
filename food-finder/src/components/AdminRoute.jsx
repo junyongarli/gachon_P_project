@@ -1,27 +1,35 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
 
 function AdminRoute() {
-  const { user, isLoading } = useAuth();
+  const { user, token, isLoading } = useAuth(); // token 추가
 
-  // 로딩 중일 때
+  // 1. 로딩 중일 때 (토큰 검증 등)
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-orange-50 via-white to-red-50">
+      <div className="flex h-screen w-full items-center justify-center">
         <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-orange-500 border-t-transparent mx-auto"></div>
-          <p className="text-muted-foreground">권한을 확인하는 중...</p>
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+            <p className="mt-2 text-gray-500">권한 확인 중...</p>
         </div>
       </div>
     );
   }
 
-  // 로그인하지 않았거나 관리자가 아닌 경우
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/admin/login" replace />;
+  // 2. 로그인이 안 되어 있을 때 (토큰이나 유저 정보 없음) -> 로그인 페이지로
+  if (!token || !user) {
+    alert('관리자 로그인이 필요합니다.');
+    return <Navigate to="/login" replace />;
   }
 
-  // 관리자인 경우 하위 라우트 렌더링
+  // 3. 로그인 했으나 관리자가 아닐 때 -> 경고 후 홈으로
+  if (user.role !== 'admin') {
+    alert('관리자 권한이 필요합니다.');
+    return <Navigate to="/" replace />;
+  }
+
+  // 4. 통과 (관리자임)
   return <Outlet />;
 }
 

@@ -1,36 +1,21 @@
-import { useState } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Users, MessageSquare, Settings, LogOut, Bell, HelpCircle, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Users, Bell, Brain, MessageSquare, BarChart3, Settings, LayoutDashboard, LogOut } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
 function AdminLayout() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { logout } = useAuth();
-  const [hoveredMenu, setHoveredMenu] = useState(null);
 
   const menuItems = [
-    { path: '/admin/users', icon: Users, label: '사용자 정보 관리' },
-    { path: '/admin/system', icon: Settings, label: '시스템 관리' },
-    {
-      path: '/admin/community',
-      icon: MessageSquare,
-      label: '커뮤니티 관리',
-      subMenu: [
-        { path: '/admin/community/notices', icon: Bell, label: '공지사항 관리' },
-        { path: '/admin/community/inquiries', icon: HelpCircle, label: '문의사항 관리' },
-      ],
-    },
+    { path: '/admin/users', icon: Users, label: '사용자 관리' },
+    { path: '/admin/notifications', icon: Bell, label: '시설자 알림 관리' },
+    { path: '/admin/ai', icon: Brain, label: 'AI모델 관리' },
+    { path: '/admin/community', icon: MessageSquare, label: '커뮤니티 관리' },
+    // { path: '/admin/statistics', icon: BarChart3, label: '통계' }, // 일단 보류
+    { path: '/admin/settings', icon: Settings, label: '설정' },
   ];
-
-  const isMenuActive = (item) => {
-    if (item.subMenu) {
-      return item.subMenu.some((sub) => location.pathname.startsWith(sub.path));
-    }
-    return location.pathname === item.path;
-  };
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50">
@@ -44,9 +29,9 @@ function AdminLayout() {
           {/* 헤더 */}
           <div className="mb-8">
             <h2 className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-              맛맵 관리자
+              관리자 패널
             </h2>
-            <p className="text-muted-foreground">Admin Panel</p>
+            <p className="text-muted-foreground">Food Finder Admin</p>
           </div>
 
           {/* 메뉴 */}
@@ -57,83 +42,25 @@ function AdminLayout() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
-                onMouseEnter={() => item.subMenu && setHoveredMenu(item.path)}
-                onMouseLeave={() => item.subMenu && setHoveredMenu(null)}
-                className="relative"
               >
-                {item.subMenu ? (
-                  // 서브메뉴가 있는 경우
-                  <>
-                    <div
-                      className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all cursor-pointer ${
-                        isMenuActive(item)
-                          ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
-                          : 'text-gray-700 hover:bg-orange-50'
-                      }`}
-                    >
-                      <item.icon
-                        className={`h-5 w-5 ${
-                          isMenuActive(item) ? 'text-white' : 'text-orange-600'
-                        }`}
-                      />
-                      <span className="flex-1">{item.label}</span>
-                      <ChevronRight
-                        className={`h-4 w-4 transition-transform ${
-                          hoveredMenu === item.path ? 'rotate-90' : ''
-                        }`}
-                      />
-                    </div>
-
-                    {/* 서브메뉴 드롭다운 */}
-                    <AnimatePresence>
-                      {hoveredMenu === item.path && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="ml-4 mt-1 space-y-1 overflow-hidden"
-                        >
-                          {item.subMenu.map((subItem) => (
-                            <NavLink
-                              key={subItem.path}
-                              to={subItem.path}
-                              className={({ isActive }) =>
-                                `flex items-center gap-3 rounded-lg px-4 py-2 text-sm transition-all ${
-                                  isActive
-                                    ? 'bg-orange-100 text-orange-700 font-medium'
-                                    : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
-                                }`
-                              }
-                            >
-                              <subItem.icon className="h-4 w-4" />
-                              <span>{subItem.label}</span>
-                            </NavLink>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </>
-                ) : (
-                  // 서브메뉴가 없는 경우
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
-                        isActive
-                          ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
-                          : 'text-gray-700 hover:bg-orange-50'
-                      }`
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-orange-600'}`} />
-                        <span>{item.label}</span>
-                      </>
-                    )}
-                  </NavLink>
-                )}
+                <NavLink
+                  to={item.path}
+                  end={item.exact}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                        : 'text-gray-700 hover:bg-orange-50'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-orange-600'}`} />
+                      <span>{item.label}</span>
+                    </>
+                  )}
+                </NavLink>
               </motion.div>
             ))}
           </nav>
