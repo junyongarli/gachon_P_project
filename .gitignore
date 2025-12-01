@@ -11,5 +11,10 @@ src/__pycache__/
 .env
 
 node_modules/
+food-finder/node_modules/
 dist/
+<<<<<<< HEAD
 .npm/git 
+=======
+.npm/
+>>>>>>> 321b303ea673990cb5f330040dfce08f3bfb296a
