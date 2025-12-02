@@ -38,6 +38,14 @@ module.exports = (sequelize) => {
     user_ratings_total: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
+    },
+    x: {
+      type: DataTypes.FLOAT, // 경도 (Longitude)
+      allowNull: true,
+    },
+    y: {
+      type: DataTypes.FLOAT, // 위도 (Latitude)
+      allowNull: true,
     }
   });
 

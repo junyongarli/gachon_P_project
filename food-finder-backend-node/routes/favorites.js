@@ -8,7 +8,10 @@ const router = express.Router();
 // 1. 맛집 찜하기 (기존 유지)
 router.post('/', protect, async (req, res) => {
   const userId = req.user.id;
-  const { restaurant_id, restaurant_name, category, address, phone, url, rating, user_ratings_total } = req.body;
+  const { 
+    restaurant_id, restaurant_name, category, address, phone, url, 
+    rating, user_ratings_total, x, y 
+  } = req.body;
 
   try {
     const existing = await Favorite.findOne({ where: { userId, restaurant_id } });
@@ -19,7 +22,9 @@ router.post('/', protect, async (req, res) => {
     const newFavorite = await Favorite.create({
       userId, restaurant_id, restaurant_name, category, address, phone, url,
       rating: rating || 0,
-      user_ratings_total: user_ratings_total || 0
+      user_ratings_total: user_ratings_total || 0,
+      x: x || 0,
+      y: y || 0
     });
 
     res.status(201).json({ success: true, message: '맛집을 찜했습니다.', favorite: newFavorite });
