@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +10,43 @@ import {
   Heart,
   Star
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion'; // motion/react -> framer-motion 권장
 import { useAuth } from '@/contexts/AuthContext';
 
 function MyPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth(); // token 가져오기
+  const [favoritesCount, setFavoritesCount] = useState(0); // 찜 개수 상태
+
+  // [추가] 찜 목록 개수 불러오기
+  useEffect(() => {
+    const fetchMyData = async () => {
+      if (!token) return;
+
+      try {
+        // 찜 목록 API 호출
+        const response = await fetch('/api/favorites', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          // 리스트의 길이(=개수)를 저장
+          setFavoritesCount(data.favorites.length);
+        }
+      } catch (error) {
+        console.error("데이터 로딩 실패:", error);
+      }
+    };
+
+    fetchMyData();
+  }, [token]);
+
+  // 날짜 포맷팅 함수 (예: 2024년 1월 1일)
+  const formatDate = (dateString) => {
+    if (!dateString) return '2024년 1월'; // 기본값
+    const date = new Date(dateString);
+    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -40,7 +72,7 @@ function MyPage() {
               <User className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+              <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent font-bold">
                 마이페이지
               </h1>
               <p className="text-gray-600 mt-1">{user?.username}님 환영합니다</p>
@@ -56,14 +88,14 @@ function MyPage() {
         >
           <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
             <CardHeader>
-              <h2 className="text-2xl text-gray-800">내 정보</h2>
+              <h2 className="text-2xl text-gray-800 font-bold">내 정보</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg">
                 <User className="w-5 h-5 text-orange-600" />
                 <div>
                   <p className="text-sm text-gray-600">사용자명</p>
-                  <p className="text-lg text-gray-800">{user?.username || '사용자'}</p>
+                  <p className="text-lg text-gray-800 font-medium">{user?.username || '사용자'}</p>
                 </div>
               </div>
 
@@ -71,7 +103,7 @@ function MyPage() {
                 <Mail className="w-5 h-5 text-orange-600" />
                 <div>
                   <p className="text-sm text-gray-600">이메일</p>
-                  <p className="text-lg text-gray-800">{user?.email || 'user@example.com'}</p>
+                  <p className="text-lg text-gray-800 font-medium">{user?.email || 'user@example.com'}</p>
                 </div>
               </div>
 
@@ -79,7 +111,9 @@ function MyPage() {
                 <Calendar className="w-5 h-5 text-orange-600" />
                 <div>
                   <p className="text-sm text-gray-600">가입일</p>
-                  <p className="text-lg text-gray-800">2024년 1월</p>
+                  <p className="text-lg text-gray-800 font-medium">
+                    {user?.createdAt ? formatDate(user.createdAt) : '2024년 1월'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -93,15 +127,18 @@ function MyPage() {
           transition={{ delay: 0.3 }}
           className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"
         >
+          {/* 찜한 맛집 개수 카드 */}
           <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">찜한 맛집</p>
-                  <p className="text-3xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">0개</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                    {favoritesCount}개
+                  </p>
                 </div>
                 <div className="bg-gradient-to-r from-orange-100 to-red-100 p-4 rounded-full">
-                  <Heart className="w-8 h-8 text-orange-600" />
+                  <Heart className="w-8 h-8 text-orange-600 fill-orange-600" />
                 </div>
               </div>
             </CardContent>
@@ -112,7 +149,10 @@ function MyPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">추천 받은 횟수</p>
-                  <p className="text-3xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">0회</p>
+                  {/* 이 부분은 아직 백엔드에 로직이 없으므로 0회 유지 또는 추후 구현 */}
+                  <p className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                    0회
+                  </p>
                 </div>
                 <div className="bg-gradient-to-r from-orange-100 to-red-100 p-4 rounded-full">
                   <Star className="w-8 h-8 text-orange-600" />
