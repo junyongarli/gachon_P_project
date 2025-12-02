@@ -8,6 +8,7 @@ const restaurantRouter = require('./routes/restaurant');
 const favoritesRouter = require('./routes/favorites');
 const adminRouter = require('./routes/admin');
 const communityRouter = require('./routes/community');
+const aiRouter = require('./routes/ai');
 //const personalizationRouter = require('./routes/personalization'); 
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(cors());
 app.use(express.json());
 
 // API 라우트 연결
+app.use('/api/ai', aiRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/restaurant', restaurantRouter);
 app.use('/api/favorites', favoritesRouter);
