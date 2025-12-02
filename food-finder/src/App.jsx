@@ -18,11 +18,10 @@ import SignupPage from './pages/SignupPage';
 // 관리자 페이지 임포트
 import AdminLayout from './components/admin/AdminLayout';
 import AdminUsers from './pages/admin/AdminUsers';
-import AdminNotifications from './pages/admin/AdminNotifications';
-import AdminAI from './pages/admin/AdminAI';
-import AdminCommunity from './pages/admin/AdminCommunity';
-// import AdminStatistics from './pages/admin/AdminStatistics'; // 일단 보류
-import AdminSettings from './pages/admin/AdminSettings';
+import AdminSystem from './pages/admin/AdminSystem';
+import AdminNotices from './pages/admin/AdminNotices';
+import AdminInquiries from './pages/admin/AdminInquiries';
+import AdminLoginPage from './pages/admin/AdminLoginPage';
 import MyPage from './pages/MyPage'; // 마이페이지
 
 function App() {
@@ -49,15 +48,13 @@ function App() {
         <Route path="/mypage" element={<><Navbar /><MyPage /></>} /> {/* 마이페이지 */}
         
         {/* 관리자 전용 라우트 (중첩 라우, Navbar 없음) */}
-        <Route element={<AdminRoute />}>
+       <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminUsers />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="notifications" element={<AdminNotifications />} />
-            <Route path="ai" element={<AdminAI />} />
-            <Route path="community" element={<AdminCommunity />} />
-            {/* <Route path="statistics" element={<AdminStatistics />} /> */}
-            <Route path="settings" element={<AdminSettings />} />
+            <Route path="system" element={<AdminSystem />} />
+            <Route path="community/notices" element={<AdminNotices />} />
+            <Route path="community/inquiries" element={<AdminInquiries />} />
           </Route>
         </Route>
       </Routes>
