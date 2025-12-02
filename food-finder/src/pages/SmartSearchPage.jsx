@@ -471,10 +471,13 @@ function RestaurantCard({ restaurant, userLocation }) {
   
   // 찜하기 토글
   const toggleFavorite = async () => {
-    if (!user) {
-      alert('로그인이 필요합니다.');
+    if (!user || !token) {
+      alert('찜하기 기능은 로그인이 필요합니다.');
       return;
     }
+    
+    // UI 먼저 업데이트
+    setIsFavorite(!isFavorite);
     
     try {
       const response = await fetch('/api/favorites', {
@@ -483,15 +486,27 @@ function RestaurantCard({ restaurant, userLocation }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ restaurantId: restaurant.id })
+        body: JSON.stringify({ 
+          restaurant_id: restaurant.id,
+          restaurant_name: restaurant.name,
+          category: restaurant.category,
+          address: restaurant.address,
+          phone: restaurant.phone || '',
+          url: restaurant.url || '',
+        })
       });
       
       const data = await response.json();
-      if (data.success) {
-        setIsFavorite(data.isFavorite);
+      if (response.ok) {
+        alert(`${restaurant.name} 식당이 찜목록에 저장되었습니다.`);
+      } else {
+        setIsFavorite(!isFavorite); // 실패하면 되돌림
+        alert(data.message || '찜하기에 실패했습니다.');
       }
     } catch (error) {
-      console.log('찜 처리 중 오류가 발생했습니다.');
+      console.error('찜하기 오류:', error);
+      setIsFavorite(!isFavorite); // 실패하면 되돌림
+      alert('찜하기 요청 중 오류가 발생했습니다.');
     }
   };
   

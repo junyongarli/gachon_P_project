@@ -1,133 +1,112 @@
 // routes/restaurant.js
-
 const express = require('express');
-const axios = require('axios');
-const { UserPreference } = require('../models');
 const router = express.Router();
+const axios = require('axios'); // 이미지 프록시용
 
-// [수정됨] 키워드를 종류(type)와 우선순위에 따라 재구성
+// 키워드 정의
 const FOOD_KEYWORDS = {
-    // 1순위: 종류 (Cuisine)
     'korean':   { type: 'cuisine', keywords: ['한식'] },
-    'western':  { type: 'cuisine', keywords: ['양식', '이탈리안'] },
+    'western':  { type: 'cuisine', keywords: ['양식', '이탈리안', '브런치'] },
+    'chinese':  { type: 'cuisine', keywords: ['중식', '중화요리'] },
+    'japanese': { type: 'cuisine', keywords: ['일식', '초밥', '이자카야'] },
     'sweet':    { type: 'cuisine', keywords: ['디저트', '카페'] },
 
-    // 2순위: 재료/기반 (Ingredient/Base)
-    'meat':     { type: 'ingredient', keywords: ['고기'] },
-    'seafood':  { type: 'ingredient', keywords: ['해산물'] },
-    'rice':     { type: 'ingredient', keywords: ['밥집', '백반'] },
-    'noodle':   { type: 'ingredient', keywords: ['면요리', '국수'] },
+    'meat':     { type: 'ingredient', keywords: ['고기', '구이', '스테이크'] },
+    'seafood':  { type: 'ingredient', keywords: ['해산물', '회', '매운탕'] },
+    'rice':     { type: 'ingredient', keywords: ['밥집', '덮밥', '정식'] },
+    'noodle':   { type: 'ingredient', keywords: ['면요리', '국수', '파스타', '짬뽕'] },
 
-    // 3순위: 맛/특징 (Flavor/Attribute)
-    'spicy':    { type: 'flavor', keywords: ['매운'] },
-    'mild':     { type: 'flavor', keywords: ['순한'] },
-    'hot':      { type: 'flavor', keywords: ['따뜻한', '국물'] },
-    'cold':     { type: 'flavor', keywords: ['시원한'] },
+    'spicy':    { type: 'flavor', keywords: ['매운', '얼큰한'] },
+    'mild':     { type: 'flavor', keywords: ['순한', '담백한'] },
+    'hot':      { type: 'flavor', keywords: ['따뜻한', '국물', '전골', '찌개'] },
+    'cold':     { type: 'flavor', keywords: ['시원한', '냉면'] },
     'salty':    { type: 'flavor', keywords: ['짭짤한'] },
 
-    // 기타 (상황/분위기 등) - 검색어 조합에는 사용하지 않음
-    'traditional': { type: 'style', keywords: ['전통'] },
-    'modern':   { type: 'style', keywords: ['모던', '퓨전'] },
+    'alcohol':  { type: 'style', keywords: ['술집', '포차'] },
     'alone':    { type: 'style', keywords: ['혼밥'] },
-    'group':    { type: 'style', keywords: ['단체', '모임'] }
+    'group':    { type: 'style', keywords: ['단체'] },
+    'modern':   { type: 'style', keywords: ['분위기 좋은'] },
+    'traditional': { type: 'style', keywords: ['전통', '노포'] },
+
+    'near':     { type: 'distance', keywords: [] }, 
+    'far':      { type: 'distance', keywords: [] }
 };
 
-// 구글 API 검색을 수행하는 헬퍼 함수 (변경 없음)
-const performGoogleSearch = async (query, apiKey, location) => {
-    const url = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
-    const params = {
-        query: query,
-        key: apiKey,
-        language: 'ko', // 한국어 결과 요청
-        // location이 있으면 해당 위치 주변 검색 (bias)
-        ...(location ? { location: `${location.latitude},${location.longitude}`, radius: 1500 } : {})
-    };
-    
-    console.log("🔍 Google API 요청:", params.query);
-    const response = await axios.get(url, { params });
-    return response.data;
-};
-
-router.post('/search', async (req, res) => {
+// [핵심 변경] 구글 검색 안 함! 검색어(String)만 생성해서 응답함.
+router.post('/search', (req, res) => {
     try {
-        // [변경] 환경변수 키 이름 변경 (KAKAO -> GOOGLE)
-        const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
-        if (!googleApiKey) {
-            return res.status(500).json({ success: false, message: '서버에 Google API 키가 없습니다.' });
-        }
-
-        const { answers, location } = req.body;
-
-        // 1~3. 키워드 조합 로직은 기존과 동일 (생략 가능하나 흐름상 유지)
-        const categorized = { cuisine: [], ingredient: [], flavor: [] };
+        const { answers } = req.body;
+        const categorized = { cuisine: [], ingredient: [], flavor: [], style: [], distance: [] };
+        
         answers.forEach(answer => {
+            if (!answer) return;
             const keywordInfo = FOOD_KEYWORDS[answer];
-            if (keywordInfo && categorized[keywordInfo.type]) {
+            if (keywordInfo) {
+                if (!categorized[keywordInfo.type]) categorized[keywordInfo.type] = [];
                 categorized[keywordInfo.type].push(...keywordInfo.keywords);
+                
+                // [추가] 거리 타입은 별도로 저장 (키워드 자체를 저장)
+                if (keywordInfo.type === 'distance') {
+                    categorized.distance.push(answer);
+                }
             }
         });
 
+        // 검색어 조합
         const queryParts = [];
-        if (categorized.cuisine.length > 0)   queryParts.push(categorized.cuisine[0]);
-        if (categorized.ingredient.length > 0) queryParts.push(categorized.ingredient[0]);
-        if (categorized.flavor.length > 0)     queryParts.push(categorized.flavor[0]);
         
-        const finalQuery = queryParts.join(' ') || '맛집';
+        const isDessert = categorized.cuisine.includes('디저트') || categorized.cuisine.includes('카페');
 
-        // [변경] Google API 호출
-        let result = await performGoogleSearch(finalQuery, googleApiKey, location);
+        if (categorized.cuisine.length > 0) queryParts.push(categorized.cuisine[0]);
 
-        // 4. 결과가 없으면 재검색하는 로직 (Google API에 맞춰 로직 재사용)
-        if (result.results.length === 0 && queryParts.length > 1) {
-            const fallbackQuery = queryParts.slice(0, 2).join(' ');
-            result = await performGoogleSearch(fallbackQuery, googleApiKey, location);
+        if (!isDessert) {
+            if (categorized.ingredient.length > 0) queryParts.push(categorized.ingredient[0]);
+            if (categorized.flavor.length > 0) queryParts.push(categorized.flavor[0]);
+        } else {
+            if (categorized.style && categorized.style.length > 0) queryParts.push(categorized.style[0]);
         }
 
-        // 5. [중요] Google 응답 포맷을 프론트엔드가 쓰던 형식으로 변환
-        let restaurants = result.results.map(item => {
-            // 사진 참조값 추출 (첫 번째 사진 사용)
-            const photoReference = item.photos && item.photos.length > 0 
-                ? item.photos[0].photo_reference 
-                : null;
+        // 술/분위기 키워드는 상황에 따라 뒤에 붙임
+        if (categorized.style.includes('술집') || categorized.style.includes('포차')) {
+             queryParts.push(categorized.style[0]);
+        }
 
-            return {
-                id: item.place_id,
-                name: item.name,
-                category: item.types ? item.types[0].replace(/_/g, ' ') : '식당',
-                address: item.formatted_address,
-                x: item.geometry.location.lng,
-                y: item.geometry.location.lat,
-                url: `https://www.google.com/maps/place/?q=place_id:${item.place_id}`,
-                
-                // 별점 및 리뷰 수
-                rating: item.rating || 0, // 없으면 0점
-                user_ratings_total: item.user_ratings_total || 0,
-                
-                // 사진 참조 코드 (URL은 프론트에서 만듦)
-                photo_reference: photoReference
-            };
-        });
+        let finalQuery = queryParts.join(' ');
         
-        res.json({ success: true, restaurants });
+        // 검색어가 너무 휑하면(예: 다 null이라서 빈 문자열이면) 기본값 설정
+        if (!finalQuery.trim()) {
+            finalQuery = "맛집"; 
+        } else if (!finalQuery.includes('맛집') && !finalQuery.includes('카페') && !finalQuery.includes('술집')) {
+             finalQuery += ' 맛집';
+        }
+        let searchRadius = 50000;
+        if (categorized.distance.includes('near')) {
+            searchRadius = 3000; // '근처' 선택 시 3km 이내로 제한
+            console.log("📍 거리 제한 적용: 가까운 곳 (3km)");
+        } else if (categorized.distance.includes('far')) {
+            searchRadius = 80000; // '멀리' 선택 시 80km까지 확장
+            console.log("📍 거리 제한 적용: 멀리 (80km)");
+        }
+        console.log(`✅ 전달 검색어: "${finalQuery}", 반경: ${searchRadius}m`);
+        res.json({ success: true, query: finalQuery, radius: searchRadius });
 
     } catch (error) {
-        console.error('Google API 검색 오류:', error.response ? error.response.data : error.message);
-        res.status(500).json({ success: false, message: '맛집 검색 중 오류가 발생했습니다.' });
+        console.error("검색어 생성 오류:", error);
+        res.status(500).json({ success: false, message: '검색어 생성 실패' });
     }
 });
-// [추가] 구글 이미지 프록시 (백엔드 키로 이미지를 대신 가져오는 역할)
+
+// 이미지 프록시 (유지)
 router.get('/image/:photo_reference', async (req, res) => {
     try {
         const photoReference = req.params.photo_reference;
-        const googleApiKey = process.env.GOOGLE_MAPS_API_KEY; // 제한 없는 백엔드 키 사용
+        const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
         if (!photoReference || !googleApiKey) {
             return res.status(400).send('Bad Request');
         }
 
         const url = 'https://maps.googleapis.com/maps/api/place/photo';
-        
-        // 구글 서버에서 이미지를 받아와서 -> 프론트엔드로 전달 (Stream)
         const response = await axios.get(url, {
             params: {
                 maxwidth: 400,
@@ -136,12 +115,10 @@ router.get('/image/:photo_reference', async (req, res) => {
             },
             responseType: 'stream'
         });
-
         response.data.pipe(res);
-
     } catch (error) {
-        console.error('이미지 가져오기 실패:', error.message);
         res.status(404).send('Image not found');
     }
 });
+
 module.exports = router;
