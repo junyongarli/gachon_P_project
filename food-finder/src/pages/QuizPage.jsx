@@ -189,7 +189,14 @@ function QuizPage() {
 
   const handleFavorite = async (place) => {
     if (!token) return alert("로그인이 필요합니다.");
-    
+    let lat, lng;
+    if (typeof place.geometry.location.lat === 'function') {
+        lat = place.geometry.location.lat();
+        lng = place.geometry.location.lng();
+    } else {
+        lat = place.geometry.location.lat;
+        lng = place.geometry.location.lng;
+    }
     const restaurantData = {
         id: place.place_id,
         name: place.name,
@@ -222,7 +229,9 @@ function QuizPage() {
             phone: restaurantData.phone,
             url: restaurantData.url,
             rating: restaurantData.rating,
-            user_ratings_total: restaurantData.user_ratings_total
+            user_ratings_total: restaurantData.user_ratings_total,
+            x: lng, 
+            y: lat  
           }),
         });
         if (!response.ok && response.status !== 409) throw new Error('찜하기 실패');
