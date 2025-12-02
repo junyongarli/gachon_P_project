@@ -230,7 +230,7 @@ function SmartSearchPage() {
           aiResponseText += `${conditions.keywords.join(', ')} 조건에 맞는 곳이에요.`;
         }
       } else {
-        aiResponseText = '조건에 맞는 맛집을 찾지 못했습니다. 조건을 조금 완화해보시겠어요?';
+        aiResponseText = '건에 맞는 맛집을 찾지 못했습니다. 조건을 조금 완화해보시겠어요?';
       }
       
       const aiMessage = {

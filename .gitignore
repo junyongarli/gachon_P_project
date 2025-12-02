@@ -13,6 +13,14 @@ src/__pycache__/
 node_modules/
 food-finder/node_modules/
 dist/
+<<<<<<< HEAD
 .npm/
 
 # 구현진 github 연동 테스트
+=======
+<<<<<<< HEAD
+.npm/git 
+=======
+.npm/
+>>>>>>> 321b303ea673990cb5f330040dfce08f3bfb296a
+>>>>>>> 8fd85501699964df7bfc7489be7ca3340454d08f
