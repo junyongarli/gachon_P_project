@@ -105,4 +105,5 @@ npm run dev
 - 웹 브라우저를 열고 프론트엔드 주소(예: http://localhost:5173)로 접속합니다. 모든 API 호출은 자동으로 백엔드 서버로 전달됩니다.
 
 
-Github 확인
+Github 확인_1
+Github 확인_2
