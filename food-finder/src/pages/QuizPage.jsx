@@ -51,37 +51,30 @@ const FALLBACK_QUESTIONS = [
 ];
 
 // --- [지도 컴포넌트] ---
+// 이제 스크립트 로딩은 부모(QuizPage)에서 담당하므로, 여기서는 지도 그리기만 담당합니다.
 const GoogleMapComponent = ({ restaurants, userLocation }) => {
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => initMap();
-      document.head.appendChild(script);
-    } else {
-      initMap();
-    }
+    if (!mapRef.current || !window.google) return;
 
-    function initMap() {
-      if (!mapRef.current) return;
-      const initialCenter = userLocation
-        ? { lat: userLocation.latitude, lng: userLocation.longitude }
-        : { lat: 37.5665, lng: 126.9780 };
-      const newMap = new window.google.maps.Map(mapRef.current, {
-        center: initialCenter, zoom: 14, disableDefaultUI: false, zoomControl: true,
-      });
-      setMap(newMap);
-    }
-  }, [userLocation]);
+    const initialCenter = userLocation
+      ? { lat: userLocation.latitude, lng: userLocation.longitude }
+      : { lat: 37.5665, lng: 126.9780 };
+
+    const newMap = new window.google.maps.Map(mapRef.current, {
+      center: initialCenter,
+      zoom: 14,
+      disableDefaultUI: false,
+      zoomControl: true,
+    });
+    setMap(newMap);
+  }, [userLocation]); // mapRef.current가 준비되고 window.google이 있을 때 실행
 
   useEffect(() => {
-    if (!map || !restaurants || restaurants.length === 0) return;
+    if (!map || !restaurants || restaurants.length === 0 || !window.google) return;
+
     const bounds = new window.google.maps.LatLngBounds();
     const infowindow = new window.google.maps.InfoWindow({ maxWidth: 240 });
     
@@ -89,10 +82,13 @@ const GoogleMapComponent = ({ restaurants, userLocation }) => {
       const location = place.geometry?.location;
       if (location) {
         const marker = new window.google.maps.Marker({
-          position: location, map: map, title: place.name, animation: window.google.maps.Animation.DROP
+          position: location,
+          map: map,
+          title: place.name,
+          animation: window.google.maps.Animation.DROP
         });
+
         marker.addListener('click', () => {
-          // ReviewPage와 동일한 방식으로 이미지 URL 사용 (JavaScript API 객체)
           const photoUrl = place.photos && place.photos.length > 0 
             ? place.photos[0].getUrl({ maxWidth: 400 }) 
             : null;
@@ -100,12 +96,16 @@ const GoogleMapComponent = ({ restaurants, userLocation }) => {
           const rating = place.rating || 0;
           const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(5 - Math.round(rating));
           const address = place.formatted_address || place.vicinity;
+          // [수정] 올바른 구글 지도 링크 형식
           const mapUrl = `https://www.google.com/maps/place/?q=place_id:${place.place_id}`;
+
           const content = `
             <div style="padding:0; min-width:200px; font-family:sans-serif;">
               ${photoUrl ? `<div style="width:100%; height:120px; background-image:url('${photoUrl}'); background-size:cover; background-position:center; border-radius:6px 6px 0 0; margin-bottom:8px; cursor:pointer;" onclick="window.open('${mapUrl}','_blank')"></div>` : ''}
               <div style="padding:${photoUrl ? '0 5px 5px' : '5px'};">
-                <h3 style="margin:0 0 4px; font-size:16px; font-weight:bold;">${place.name}</h3>
+                <h3 style="margin:0 0 4px; font-size:16px; font-weight:bold;">
+                    <a href="${mapUrl}" target="_blank" style="text-decoration:none; color:inherit;">${place.name}</a>
+                </h3>
                 <div style="display:flex; align-items:center; margin-bottom:6px;">
                     <span style="color:#f59e0b; margin-right:4px;">${stars}</span>
                     <span style="color:#666; font-size:12px;">${rating}</span>
@@ -138,8 +138,33 @@ function QuizPage() {
   const [restaurants, setRestaurants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [favorites, setFavorites] = useState(new Set());
+  const [isApiLoaded, setIsApiLoaded] = useState(false); // API 로드 상태 추가
 
-  // 1. 찜 목록 동기화
+  // 1. [핵심 수정] Google Maps API 미리 로드 (페이지 진입 시)
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    
+    if (window.google && window.google.maps) {
+        setIsApiLoaded(true);
+        return;
+    }
+
+    if (!document.querySelector(`script[src*="maps.googleapis.com"]`)) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+            console.log("Google Maps API Loaded");
+            setIsApiLoaded(true);
+        };
+        document.head.appendChild(script);
+    } else {
+        setIsApiLoaded(true);
+    }
+  }, []);
+
+  // 2. 찜 목록 동기화
   useEffect(() => {
     const fetchMyFavorites = async () => {
       if (!token) return;
@@ -171,6 +196,7 @@ function QuizPage() {
         category: place.types ? place.types[0].replace(/_/g, ' ') : '식당',
         address: place.formatted_address || place.vicinity,
         phone: '', 
+        // [수정] 올바른 URL 형식
         url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
         rating: place.rating || 0,
         user_ratings_total: place.user_ratings_total || 0
@@ -216,34 +242,37 @@ function QuizPage() {
     }
   };
 
-  // 2. 시작하기 버튼 클릭 시 -> AI 질문 생성 요청
-  const handleStart = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            const location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-            setUserLocation(location);
-            generateAiQuestions(location); 
-        },
-        () => {
-            console.log("위치 정보 거부됨");
-            generateAiQuestions(null); 
-        }
-      );
-    } else {
+  // 3. 시작하기 버튼 클릭
+  const handleStart = async () => {
+    setCurrentStep('ai_loading');
+    
+    if (!navigator.geolocation) {
+        generateAiQuestions(null);
+        return;
+    }
+
+    // GPS 타임아웃 (3초)
+    const getLocation = new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+    });
+
+    try {
+        const pos = await getLocation;
+        const location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        setUserLocation(location);
+        generateAiQuestions(location);
+    } catch (error) {
+        console.warn("위치 정보 가져오기 실패 또는 타임아웃");
         generateAiQuestions(null);
     }
   };
 
-  // 3. AI 질문 생성 함수 (수정됨: Body 내용 채움)
+  // 4. AI 질문 생성
   const generateAiQuestions = async (locationData) => {
     if (!token) {
-        // 로그인 안했으면 바로 기본 질문 사용
         setCurrentStep('questions');
         return;
     }
-
-    setCurrentStep('ai_loading');
 
     try {
         const response = await fetch('/api/ai/quiz/generate', {
@@ -252,7 +281,6 @@ function QuizPage() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}` 
             },
-            // [수정됨] 실제 데이터를 전송하도록 수정
             body: JSON.stringify({
                 location: locationData ? `${locationData.latitude}, ${locationData.longitude}` : '서울',
                 time: new Date().toLocaleTimeString(),
@@ -264,8 +292,6 @@ function QuizPage() {
 
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
             let aiQuestions = data.data; 
-            
-            // 부족하면 기본 질문으로 채움
             if (aiQuestions.length < 5) {
                 const missingCount = 5 - aiQuestions.length;
                 const padQuestions = FALLBACK_QUESTIONS.slice(0, missingCount).map(q => ({
@@ -274,8 +300,6 @@ function QuizPage() {
                 }));
                 aiQuestions = [...aiQuestions, ...padQuestions];
             }
-
-            // ID 재할당
             const finalQuestions = aiQuestions.map((q, idx) => ({
                 id: idx + 1,
                 question: q.question || "질문 내용 없음",
@@ -303,6 +327,14 @@ function QuizPage() {
 
   const searchRestaurants = async (userAnswers) => {
     setCurrentStep('loading');
+
+    // [안전장치] API가 아직 로드되지 않았으면 잠시 대기
+    if (!isApiLoaded || !window.google) {
+        alert("지도 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+        setCurrentStep('questions'); // 마지막 질문 상태로 유지
+        return;
+    }
+
     try {
       const response = await fetch('/api/restaurant/search', {
         method: 'POST',
@@ -321,15 +353,12 @@ function QuizPage() {
         
         if (userLocation) {
             request.location = new window.google.maps.LatLng(userLocation.latitude, userLocation.longitude);
-            // 구글 검색 자체는 좀 넓게 잡아둡니다 (필터링으로 거를 것이므로)
         }
 
         service.textSearch(request, (results, status) => {
             if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
                 
                 const allowedTypes = ['restaurant', 'food', 'cafe', 'bakery', 'bar', 'meal_takeaway', 'meal_delivery'];
-                
-                // [핵심] 백엔드에서 받은 radius 값 사용 (없으면 기본 50km)
                 const limitRadius = data.radius || 50000; 
 
                 const filtered = results.filter(place => {
@@ -339,15 +368,13 @@ function QuizPage() {
                     if (userLocation && place.geometry && place.geometry.location) {
                         const myPos = new window.google.maps.LatLng(userLocation.latitude, userLocation.longitude);
                         const placePos = place.geometry.location;
-                        const distanceInMeters = window.google.maps.geometry.spherical.computeDistanceBetween(myPos, placePos);
-                        
-                        // [수정] 백엔드가 정해준 거리보다 멀면 탈락!
-                        if (distanceInMeters > limitRadius) { 
-                            return false; 
+                        // geometry 라이브러리가 로드되었는지 확인
+                        if (window.google.maps.geometry) {
+                            const distanceInMeters = window.google.maps.geometry.spherical.computeDistanceBetween(myPos, placePos);
+                            if (distanceInMeters > limitRadius) return false;
+                            place.distanceText = (distanceInMeters / 1000).toFixed(1) + "km";
+                            place.distanceVal = distanceInMeters;
                         }
-
-                        place.distanceText = (distanceInMeters / 1000).toFixed(1) + "km";
-                        place.distanceVal = distanceInMeters;
                     }
                     return true;
                 });
@@ -355,7 +382,6 @@ function QuizPage() {
                 filtered.sort((a, b) => (a.distanceVal || 0) - (b.distanceVal || 0));
 
                 if (filtered.length === 0) {
-                    // 너무 좁혀서 결과가 없으면 원본에서 가까운 순으로 5개만
                     setRestaurants(results.slice(0, 5)); 
                 } else {
                     setRestaurants(filtered);
@@ -365,6 +391,9 @@ function QuizPage() {
             }
             setCurrentStep('results');
         });
+      } else {
+        setRestaurants([]);
+        setCurrentStep('results');
       }
     } catch (error) {
       console.error(error);
@@ -381,8 +410,9 @@ function QuizPage() {
     setQuestions(FALLBACK_QUESTIONS); 
   };
 
-  // --- 화면 렌더링 ---
-
+  // --- 화면 렌더링 (이전과 동일) ---
+  // ... 생략된 부분 없음, 위 코드와 동일하게 복사해 넣으세요.
+  
   if (currentStep === 'start') { 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">
@@ -434,7 +464,6 @@ function QuizPage() {
   if (currentStep === 'questions') {
     const currentQuestion = questions[currentQuestionIndex];
     
-    // 안전장치: 질문 데이터가 없을 경우
     if (!currentQuestion) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -540,6 +569,9 @@ function QuizPage() {
                   const photoUrl = restaurant.photos && restaurant.photos.length > 0 
                     ? restaurant.photos[0].getUrl({ maxWidth: 400 })
                     : null;
+                  
+                  // [수정] 올바른 지도 링크
+                  const mapUrl = `https://www.google.com/maps/place/?q=place_id:${restaurant.place_id}`;
 
                   return (
                     <motion.div key={restaurant.place_id || index} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * index }}>
@@ -572,9 +604,12 @@ function QuizPage() {
                                         <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                                         <span className="line-clamp-1 text-xs md:text-sm">{restaurant.formatted_address}</span>
                                     </div>
+                                    {restaurant.distanceText && (
+                                        <div className="inline-block bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-medium">{restaurant.distanceText}</div>
+                                    )}
                                 </div>
                                 <div className="flex gap-2 mt-2">
-                                    <a href={`https://www.google.com/maps/place/?q=place_id:${restaurant.place_id}`} target="_blank" rel="noopener noreferrer" className="flex-1">
+                                    <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
                                         <Button size="sm" variant="outline" className="w-full h-8 text-xs hover:bg-orange-50 hover:text-orange-600 border-orange-200">
                                             지도 보기 <ExternalLink className="w-3 h-3 ml-1.5 opacity-70" />
                                         </Button>
