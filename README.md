@@ -12,7 +12,7 @@
 
 - 인증: JWT (JSON Web Token)
 
-- 외부 API: Kakao Maps API
+- 외부 API: Google API
 
 ## 🛠️ 로컬 개발 환경 설정
 아래 단계를 따라 로컬 컴퓨터에서 프로젝트를 설정하고 실행할 수 있습니다.
