@@ -4,6 +4,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models'); // DB 모델에서 User를 가져옵니다.
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -75,5 +76,60 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 });
+// -------------------------------------------------------
+// 비밀번호 변경 API (PUT /api/auth/update-password)
+// -------------------------------------------------------
+router.put('/update-password', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id; // 미들웨어에서 해독한 사용자 ID
 
+    // 1. 사용자 찾기
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    // 2. 현재 비밀번호 확인 (DB에 저장된 해시 비밀번호와 비교)
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: '현재 비밀번호가 일치하지 않습니다.' });
+    }
+
+    // 3. 새 비밀번호 암호화 및 저장
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ success: true, message: '비밀번호가 성공적으로 변경되었습니다.' });
+
+  } catch (error) {
+    console.error('비밀번호 변경 오류:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// -------------------------------------------------------
+// 회원 탈퇴 API (DELETE /api/auth/delete-account)
+// -------------------------------------------------------
+router.delete('/delete-account', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. 사용자 찾기
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    // 2. 사용자 삭제 (DB 설정에 따라 연관된 찜 목록 등도 같이 삭제될 수 있음)
+    await user.destroy();
+
+    res.json({ success: true, message: '회원 탈퇴가 완료되었습니다.' });
+
+  } catch (error) {
+    console.error('회원 탈퇴 오류:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
 module.exports = router;

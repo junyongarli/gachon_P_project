@@ -5,14 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, User, Bell, Shield, Palette, ChevronRight } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Settings, User, Bell, Shield, Palette } from 'lucide-react';
+import { motion } from 'framer-motion'; // motion/react -> framer-motion (라이브러리명 확인 필요)
 import { useAuth } from '@/contexts/AuthContext';
 
 function SettingsPage() {
-  const { user } = useAuth();
+  // useAuth에서 user 정보와 token, logout 함수를 가져옵니다.
+  const { user, token, logout } = useAuth();
 
-  // 계정 설정
+  // 계정 설정 상태
   const [accountSettings, setAccountSettings] = useState({
     username: user?.username || '',
     email: user?.email || '',
@@ -21,7 +22,7 @@ function SettingsPage() {
     confirmPassword: '',
   });
 
-  // 서비스 설정
+  // 서비스 설정 상태
   const [serviceSettings, setServiceSettings] = useState({
     emailNotification: true,
     pushNotification: false,
@@ -30,53 +31,110 @@ function SettingsPage() {
     locationService: true,
   });
 
+  // [기능 1] 정보 업데이트 (데모)
   const handleAccountUpdate = () => {
     if (!user) {
       alert('로그인이 필요한 기능입니다.');
       return;
     }
-
-    // TODO: API 연동
-    alert('계정 정보가 업데이트되었습니다.');
+    alert('계정 정보가 업데이트되었습니다. (데모 기능)');
   };
 
-  const handlePasswordChange = () => {
+  // [기능 2] 비밀번호 변경 (API 연동)
+  const handlePasswordChange = async () => {
     if (!user) {
       alert('로그인이 필요한 기능입니다.');
       return;
     }
 
-    if (!accountSettings.currentPassword || !accountSettings.newPassword || !accountSettings.confirmPassword) {
+    const { currentPassword, newPassword, confirmPassword } = accountSettings;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
       alert('모든 비밀번호 필드를 입력해주세요.');
       return;
     }
 
-    if (accountSettings.newPassword !== accountSettings.confirmPassword) {
+    if (newPassword !== confirmPassword) {
       alert('새 비밀번호가 일치하지 않습니다.');
       return;
     }
 
-    // TODO: API 연동
-    alert('비밀번호가 변경되었습니다.');
-    setAccountSettings({
-      ...accountSettings,
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
+    try {
+      const response = await fetch('/api/auth/update-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 토큰 전송
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('비밀번호가 변경되었습니다. 보안을 위해 다시 로그인해주세요.');
+        
+        // 입력 필드 초기화
+        setAccountSettings({
+          ...accountSettings,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+
+        // 로그아웃 처리
+        if (logout) logout();
+        else {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+      } else {
+        alert(data.message || '비밀번호 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('비밀번호 변경 에러:', error);
+      alert('서버 통신 중 오류가 발생했습니다.');
+    }
   };
 
   const handleServiceSettingsUpdate = () => {
-    // TODO: API 연동
     alert('서비스 설정이 저장되었습니다.');
   };
 
-  const handleAccountDelete = () => {
+  // [기능 3] 회원 탈퇴 (API 연동)
+  const handleAccountDelete = async () => {
     if (!user) return;
 
-    if (confirm('정말로 회원 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      // TODO: API 연동
-      alert('회원 탈퇴 처리되었습니다.');
+    if (confirm('정말로 회원 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없으며, 모든 데이터가 삭제됩니다.')) {
+      try {
+        const response = await fetch('/api/auth/delete-account', {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}` // 토큰 전송
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('회원 탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.');
+          if (logout) logout();
+          else {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+          }
+        } else {
+          alert(data.message || '회원 탈퇴에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('회원 탈퇴 에러:', error);
+        alert('서버 통신 중 오류가 발생했습니다.');
+      }
     }
   };
 
@@ -104,7 +162,7 @@ function SettingsPage() {
               <Settings className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+              <h1 className="text-4xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent font-bold">
                 설정
               </h1>
               <p className="text-gray-600 mt-1">계정 및 서비스 설정을 관리하세요</p>
@@ -132,7 +190,7 @@ function SettingsPage() {
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2 mb-6">
                       <User className="w-5 h-5 text-orange-500" />
-                      <h3 className="text-xl text-gray-800">기본 정보</h3>
+                      <h3 className="text-xl text-gray-800 font-bold">기본 정보</h3>
                     </div>
 
                     <div className="space-y-4">
@@ -142,8 +200,8 @@ function SettingsPage() {
                           id="username"
                           type="text"
                           value={accountSettings.username}
-                          onChange={(e) => setAccountSettings({ ...accountSettings, username: e.target.value })}
-                          className="mt-2"
+                          disabled
+                          className="mt-2 bg-gray-100 cursor-not-allowed"
                         />
                       </div>
 
@@ -153,17 +211,18 @@ function SettingsPage() {
                           id="email"
                           type="email"
                           value={accountSettings.email}
-                          onChange={(e) => setAccountSettings({ ...accountSettings, email: e.target.value })}
-                          className="mt-2"
+                          disabled
+                          className="mt-2 bg-gray-100 cursor-not-allowed"
                         />
                       </div>
-
-                      <Button
+                      
+                      {/* <Button
                         onClick={handleAccountUpdate}
                         className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
                       >
                         정보 업데이트
-                      </Button>
+                      </Button> 
+                      */}
                     </div>
                   </CardContent>
                 </Card>
@@ -173,7 +232,7 @@ function SettingsPage() {
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2 mb-6">
                       <Shield className="w-5 h-5 text-orange-500" />
-                      <h3 className="text-xl text-gray-800">비밀번호 변경</h3>
+                      <h3 className="text-xl text-gray-800 font-bold">비밀번호 변경</h3>
                     </div>
 
                     <div className="space-y-4">
@@ -223,7 +282,7 @@ function SettingsPage() {
                 {/* 회원 탈퇴 */}
                 <Card className="bg-white/80 backdrop-blur-sm shadow-lg border border-red-200">
                   <CardContent className="p-6">
-                    <h3 className="text-xl text-gray-800 mb-2">회원 탈퇴</h3>
+                    <h3 className="text-xl text-gray-800 font-bold mb-2">회원 탈퇴</h3>
                     <p className="text-sm text-gray-600 mb-4">
                       회원 탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.
                     </p>
@@ -245,13 +304,13 @@ function SettingsPage() {
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2 mb-6">
                       <Bell className="w-5 h-5 text-orange-500" />
-                      <h3 className="text-xl text-gray-800">알림 설정</h3>
+                      <h3 className="text-xl text-gray-800 font-bold">알림 설정</h3>
                     </div>
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between py-3 border-b border-gray-200">
                         <div>
-                          <p className="text-gray-800">이메일 알림</p>
+                          <p className="text-gray-800 font-medium">이메일 알림</p>
                           <p className="text-sm text-gray-500">새로운 소식을 이메일로 받습니다</p>
                         </div>
                         <Switch
@@ -262,7 +321,7 @@ function SettingsPage() {
 
                       <div className="flex items-center justify-between py-3 border-b border-gray-200">
                         <div>
-                          <p className="text-gray-800">푸시 알림</p>
+                          <p className="text-gray-800 font-medium">푸시 알림</p>
                           <p className="text-sm text-gray-500">실시간 알림을 받습니다</p>
                         </div>
                         <Switch
@@ -273,7 +332,7 @@ function SettingsPage() {
 
                       <div className="flex items-center justify-between py-3 border-b border-gray-200">
                         <div>
-                          <p className="text-gray-800">리뷰 알림</p>
+                          <p className="text-gray-800 font-medium">리뷰 알림</p>
                           <p className="text-sm text-gray-500">새로운 리뷰 알림을 받습니다</p>
                         </div>
                         <Switch
@@ -284,7 +343,7 @@ function SettingsPage() {
 
                       <div className="flex items-center justify-between py-3 border-b border-gray-200">
                         <div>
-                          <p className="text-gray-800">마케팅 이메일</p>
+                          <p className="text-gray-800 font-medium">마케팅 이메일</p>
                           <p className="text-sm text-gray-500">프로모션 정보를 받습니다</p>
                         </div>
                         <Switch
@@ -301,13 +360,13 @@ function SettingsPage() {
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2 mb-6">
                       <Palette className="w-5 h-5 text-orange-500" />
-                      <h3 className="text-xl text-gray-800">기타 설정</h3>
+                      <h3 className="text-xl text-gray-800 font-bold">기타 설정</h3>
                     </div>
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between py-3 border-b border-gray-200">
                         <div>
-                          <p className="text-gray-800">위치 서비스</p>
+                          <p className="text-gray-800 font-medium">위치 서비스</p>
                           <p className="text-sm text-gray-500">주변 맛집 추천을 위해 사용됩니다</p>
                         </div>
                         <Switch
