@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,111 +6,104 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import {
-  MessageSquare,
-  Search,
-  Eye,
-  Clock,
-  CheckCircle,
-  Send,
-} from 'lucide-react';
-import { motion } from 'motion/react';
+import { MessageSquare, Search, Eye, Clock, CheckCircle, Send } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext'; // 토큰 사용
 
 function AdminInquiries() {
+  const { token } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-
-  // 문의사항 상태
-  const [inquiries, setInquiries] = useState([
-    {
-      id: 1,
-      username: '김철수',
-      email: 'kim@example.com',
-      category: 'AI 추천 관련',
-      title: 'AI 추천이 작동하지 않아요',
-      content: '퀴즈를 완료했는데 추천 결과가 나오지 않습니다.',
-      status: 'pending',
-      createdAt: '2024-11-28 14:30',
-      answer: null,
-      answeredAt: null,
-    },
-    {
-      id: 2,
-      username: '이영희',
-      email: 'lee@example.com',
-      category: '배달 상태',
-      title: '찜 목록이 저장되지 않습니다',
-      content: '하트 버튼을 눌러도 찜 목록에 추가되지 않아요.',
-      status: 'pending',
-      createdAt: '2024-11-28 13:15',
-      answer: null,
-      answeredAt: null,
-    },
-    {
-      id: 3,
-      username: '박민수',
-      email: 'park@example.com',
-      category: '기타 문의',
-      title: '회원 탈퇴 문의',
-      content: '회원 탈퇴는 어떻게 하나요?',
-      status: 'completed',
-      createdAt: '2024-11-27 10:45',
-      answer: '설정 > 계정 관리 > 회원 탈퇴 메뉴에서 진행하실 수 있습니다.',
-      answeredAt: '2024-11-27 11:30',
-    },
-  ]);
+  
+  // [수정] API 데이터 연동을 위한 상태
+  const [inquiries, setInquiries] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [selectedInquiry, setSelectedInquiry] = useState(null);
   const [answerText, setAnswerText] = useState('');
 
-  // 문의사항 관련 함수
-  const handleInquiryStatusChange = (id, newStatus) => {
-    setInquiries(
-      inquiries.map((inquiry) =>
-        inquiry.id === id ? { ...inquiry, status: newStatus } : inquiry
-      )
-    );
-    toast.success(`문의 상태가 "${newStatus === 'pending' ? '대기중' : '답변완료'}"로 변경되었습니다`);
+  // 1. 문의 목록 불러오기 (Read)
+  const fetchInquiries = async () => {
+    try {
+      const response = await fetch('/api/community/admin/inquiries', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setInquiries(data.inquiries);
+      }
+    } catch (error) {
+      console.error("문의 조회 실패:", error);
+      toast.error("문의 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSubmitAnswer = () => {
+  useEffect(() => {
+    fetchInquiries();
+  }, []);
+
+  // 2. 상태 변경 핸들러
+  const handleInquiryStatusChange = async (id, newStatus) => {
+    try {
+        const response = await fetch(`/api/community/admin/inquiries/${id}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        if (response.ok) {
+            // UI 즉시 반영
+            setInquiries(inquiries.map(inq => 
+                inq.id === id ? { ...inq, status: newStatus } : inq
+            ));
+            toast.success(`상태가 변경되었습니다`);
+        }
+    } catch (error) {
+        toast.error("상태 변경 실패");
+    }
+  };
+
+  // 3. 답변 등록 핸들러
+  const handleSubmitAnswer = async () => {
     if (!answerText.trim()) {
       toast.error('답변 내용을 입력해주세요');
       return;
     }
 
-    setInquiries(
-      inquiries.map((inquiry) =>
-        inquiry.id === selectedInquiry.id
-          ? {
-              ...inquiry,
-              answer: answerText,
-              answeredAt: new Date().toLocaleString('ko-KR'),
-              status: 'completed',
-            }
-          : inquiry
-      )
-    );
+    try {
+        const response = await fetch(`/api/community/admin/inquiries/${selectedInquiry.id}/reply`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ answer: answerText })
+        });
 
-    setSelectedInquiry(null);
-    setAnswerText('');
-    toast.success('답변이 등록되었습니다');
+        const data = await response.json();
+
+        if (data.success) {
+            toast.success('답변이 등록되었습니다');
+            setAnswerText('');
+            setSelectedInquiry(null); // 모달 닫기 (Dialog open 상태 제어 필요 시 추가 구현)
+            fetchInquiries(); // 목록 새로고침
+        } else {
+            toast.error(data.message || '등록 실패');
+        }
+    } catch (error) {
+        console.error(error);
+        toast.error('서버 오류 발생');
+    }
   };
 
   const getCategoryBadge = (category) => {
@@ -119,9 +112,10 @@ function AdminInquiries() {
       '배달 상태': 'bg-green-500',
       '기타 문의': 'bg-gray-500',
     };
-    return <Badge className={colors[category] || 'bg-gray-500'}>{category}</Badge>;
+    return <Badge className={`${colors[category] || 'bg-gray-500'} text-white`}>{category}</Badge>;
   };
 
+  // 검색 필터링
   const filteredInquiries = inquiries.filter(
     (inquiry) =>
       inquiry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -136,18 +130,11 @@ function AdminInquiries() {
 
   return (
     <div>
-      {/* 헤더 */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <h1 className="mb-2 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+        <h1 className="mb-2 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent text-2xl font-bold">
           문의사항 관리
         </h1>
-        <p className="text-muted-foreground">
-          사용자 문의를 확인하고 답변을 등록합니다
-        </p>
+        <p className="text-muted-foreground">사용자 문의를 확인하고 답변을 등록합니다</p>
       </motion.div>
 
       {/* 통계 카드 */}
@@ -157,21 +144,16 @@ function AdminInquiries() {
           { label: '대기중', value: inquiryStats.pending, icon: Clock, color: 'from-orange-500 to-orange-600' },
           { label: '답변완료', value: inquiryStats.completed, icon: CheckCircle, color: 'from-green-500 to-green-600' },
         ].map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
+          <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
             <Card className="backdrop-blur-sm bg-white/80">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-muted-foreground">{stat.label}</CardTitle>
+                <CardTitle className="text-muted-foreground text-sm font-medium">{stat.label}</CardTitle>
                 <div className={`rounded-lg bg-gradient-to-br ${stat.color} p-2`}>
                   <stat.icon className="h-4 w-4 text-white" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div>{stat.value}</div>
+                <div className="text-2xl font-bold">{stat.value}</div>
               </CardContent>
             </Card>
           </motion.div>
@@ -199,123 +181,116 @@ function AdminInquiries() {
           <CardTitle>문의사항 목록 ({filteredInquiries.length}개)</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>상태</TableHead>
-                <TableHead>카테고리</TableHead>
-                <TableHead>제목</TableHead>
-                <TableHead>작성자</TableHead>
-                <TableHead>작성일</TableHead>
-                <TableHead className="text-right">작업</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInquiries.map((inquiry) => (
-                <TableRow key={inquiry.id}>
-                  <TableCell>
-                    <Badge variant={inquiry.status === 'pending' ? 'default' : 'secondary'}>
-                      {inquiry.status === 'pending' ? '대기중' : '답변완료'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{getCategoryBadge(inquiry.category)}</TableCell>
-                  <TableCell>{inquiry.title}</TableCell>
-                  <TableCell>
-                    <div>
-                      <p>{inquiry.username}</p>
-                      <p className="text-muted-foreground">{inquiry.email}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{inquiry.createdAt}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedInquiry(inquiry);
-                              setAnswerText(inquiry.answer || '');
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>{selectedInquiry?.title}</DialogTitle>
-                            <DialogDescription>
-                              {selectedInquiry?.username} ({selectedInquiry?.email}) • {selectedInquiry?.createdAt}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            {/* 문의 내용 */}
-                            <div>
-                              <Label>문의 내용</Label>
-                              <div className="p-4 rounded-lg border border-gray-200 bg-gray-50 mt-2">
-                                {selectedInquiry?.content}
+          {isLoading ? (
+            <div className="text-center py-10 text-gray-500">로딩 중...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>상태</TableHead>
+                  <TableHead>카테고리</TableHead>
+                  <TableHead>제목</TableHead>
+                  <TableHead>작성자</TableHead>
+                  <TableHead>작성일</TableHead>
+                  <TableHead className="text-right">작업</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInquiries.map((inquiry) => (
+                  <TableRow key={inquiry.id}>
+                    <TableCell>
+                      <Badge variant={inquiry.status === 'pending' ? 'default' : 'secondary'}>
+                        {inquiry.status === 'pending' ? '대기중' : '답변완료'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{getCategoryBadge(inquiry.category)}</TableCell>
+                    <TableCell>{inquiry.title}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p>{inquiry.username}</p>
+                        <p className="text-muted-foreground text-xs">{inquiry.email}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>{new Date(inquiry.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedInquiry(inquiry);
+                                setAnswerText(inquiry.answer || '');
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>{selectedInquiry?.title}</DialogTitle>
+                              <DialogDescription>
+                                {selectedInquiry?.username} ({selectedInquiry?.email}) • {selectedInquiry && new Date(selectedInquiry.createdAt).toLocaleString()}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>문의 내용</Label>
+                                <div className="p-4 rounded-lg border border-gray-200 bg-gray-50 mt-2 whitespace-pre-wrap">
+                                  {selectedInquiry?.content}
+                                </div>
+                              </div>
+
+                              <div>
+                                <Label htmlFor="answer-text">답변</Label>
+                                {selectedInquiry?.status === 'completed' && selectedInquiry.answer ? (
+                                  <div className="p-4 rounded-lg border border-green-200 bg-green-50 mt-2">
+                                    <p className="text-green-800 whitespace-pre-wrap">{selectedInquiry.answer}</p>
+                                    <p className="text-muted-foreground mt-2 text-xs">
+                                      최종 수정: {new Date(selectedInquiry.answeredAt).toLocaleString()}
+                                    </p>
+                                    {/* 수정하려면 아래 텍스트에리어를 다시 보여주는 로직 추가 가능 */}
+                                  </div>
+                                ) : (
+                                  <Textarea
+                                    id="answer-text"
+                                    placeholder="답변을 작성해주세요"
+                                    rows={5}
+                                    value={answerText}
+                                    onChange={(e) => setAnswerText(e.target.value)}
+                                    className="mt-2"
+                                  />
+                                )}
                               </div>
                             </div>
-
-                            {/* 답변 영역 */}
-                            <div>
-                              <Label htmlFor="answer-text">답변</Label>
-                              {selectedInquiry?.status === 'completed' && selectedInquiry.answer ? (
-                                <div className="p-4 rounded-lg border border-green-200 bg-green-50 mt-2">
-                                  <p className="text-green-800">{selectedInquiry.answer}</p>
-                                  <p className="text-muted-foreground mt-2">
-                                    답변일: {selectedInquiry.answeredAt}
-                                  </p>
-                                </div>
-                              ) : (
-                                <Textarea
-                                  id="answer-text"
-                                  placeholder="답변을 작성해주세요"
-                                  rows={5}
-                                  value={answerText}
-                                  onChange={(e) => setAnswerText(e.target.value)}
-                                  className="mt-2"
-                                />
+                            <DialogFooter>
+                              {(selectedInquiry?.status === 'pending' || !selectedInquiry?.answer) && (
+                                <Button onClick={handleSubmitAnswer} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                                  <Send className="h-4 w-4 mr-2" /> 답변 등록
+                                </Button>
                               )}
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            {selectedInquiry?.status === 'pending' && (
-                              <Button
-                                onClick={handleSubmitAnswer}
-                                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                              >
-                                <Send className="h-4 w-4 mr-2" />
-                                답변 등록
-                              </Button>
-                            )}
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                      {inquiry.status === 'pending' ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleInquiryStatusChange(inquiry.id, 'completed')}
-                        >
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleInquiryStatusChange(inquiry.id, 'pending')}
-                        >
-                          <Clock className="h-4 w-4 text-orange-500" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                        
+                        {/* 상태 수동 변경 버튼 */}
+                        {inquiry.status === 'pending' ? (
+                          <Button variant="ghost" size="icon" onClick={() => handleInquiryStatusChange(inquiry.id, 'completed')}>
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" onClick={() => handleInquiryStatusChange(inquiry.id, 'pending')}>
+                            <Clock className="h-4 w-4 text-orange-500" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
