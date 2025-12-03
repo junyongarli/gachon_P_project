@@ -7,22 +7,21 @@ const { protect } = require('../middleware/authMiddleware');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const MODEL_ID = process.env.FINE_TUNED_MODEL_ID || "gpt-3.5-turbo"; 
+const MODEL_ID = process.env.FINE_TUNED_MODEL_ID //|| "gpt-3.5-turbo"; 
 
 // 1. [강화된] JSON 문자열 청소 함수
 function cleanJsonString(str) {
     if (!str) return "";
     
-    // (1) 마크다운 코드 블록 제거 (```json ... ```)
+    // (1) 마크다운 및 JSON 포맷 정리
     let cleaned = str.replace(/^```json\s*/, '').replace(/^```/, '').replace(/```$/, '').trim();
-    
-    // (2) 흔한 JSON 실수 교정 (중복 닫기 괄호 제거)
-    // 예: "}}" -> "}"
     cleaned = cleaned.replace(/}}\s*]/g, "}]").replace(/]\s*}/g, "]}");
-    
-    // (3) 맨 뒤에 불필요한 콤마 제거 (Trailing Comma)
-    cleaned = cleaned.replace(/,\s*}/g, "}");
-    cleaned = cleaned.replace(/,\s*]/g, "]");
+
+    // (2) [핵심] AI가 뱉은 이상한 태그(#@...#)를 자연스러운 말로 치환
+    // 예: "#@LOCATION# 백반" -> "유명한 백반"
+    cleaned = cleaned.replace(/#@LOCATION#/g, "근처"); 
+    cleaned = cleaned.replace(/#@소속#/g, "추천");
+    cleaned = cleaned.replace(/#@.*?#/g, "이 곳"); // 나머지 모든 #@...# 태그 제거
 
     return cleaned;
 }
@@ -148,5 +147,107 @@ router.post('/quiz/generate', protect, async (req, res) => {
         res.json({ success: false, data: [], error: error.message });
     }
 });
+// 스마트 검색 (대화형 맛집 추천) API
+router.post('/smart-search', protect, async (req, res) => {
+    console.log(`[스마트 검색] 사용자: ${req.body.message}`);
 
+    try {
+        const userId = req.user.id;
+        const { message, userLocation, history } = req.body;
+
+        // 1. 찜 목록 조회 (취향 데이터)
+        const favorites = await Favorite.findAll({
+            where: { userId },
+            attributes: ['restaurant_name', 'category'],
+            limit: 10,
+            order: [['createdAt', 'DESC']]
+        });
+
+        const favContext = favorites.length > 0
+            ? favorites.map(f => `${f.restaurant_name}(${f.category})`).join(', ')
+            : "없음";
+
+        // 2. 대화 기록 정리
+        const conversationHistory = history ? history.map(msg => ({
+            role: msg.role,
+            content: msg.content
+        })).slice(-6) : [];
+
+        // 3. 위치 정보 문자열 생성 (AI에게 강제 인식)
+        let locationInfo = "위치 정보 없음";
+        if (userLocation && userLocation.lat && userLocation.lng) {
+             locationInfo = `위도 ${userLocation.lat}, 경도 ${userLocation.lng} (사용자의 현재 위치임)`;
+        }
+
+        // 4. AI 호출 (요청하신 프롬프트 적용)
+        const completion = await openai.chat.completions.create({
+            model: MODEL_ID, 
+            messages: [
+                {
+                    role: "system",
+                    // 요청하신 프롬프트 내용 그대로 적용
+                    content: `당신은 '맛맵'의 유연하고 똑똑한 맛집 추천 AI입니다. 사용자의 입력을 분석하여 JSON으로 응답하세요.
+
+                    [필수 규칙: 위치 처리]
+                    1. [현재 위치] 정보가 좌표(위도/경도)로 주어지면, 사용자가 "근처", "주변", "내 위치"라고 할 때 **절대 "위치를 모른다"고 하지 마세요.**
+                    2. 대신 "계신 곳 근처에서 찾아드릴게요!" 또는 "주변 맛집을 검색합니다"라고 자연스럽게 응대하고, 'CURRENT_LOCATION' 타입으로 반환하세요.
+
+                    [핵심 가치 1: 다양성과 의외성]
+                    - 찜 목록은 힌트일 뿐입니다. 50% 확률로 찜 목록과 다른 새로운 스타일을 제안하세요.
+                    - 거절("싫어") 시 즉시 다른 메뉴를 제안하세요.
+                    - 문맥 최우선: 사용자가 "매운거", "국물" 등 구체적인 조건을 말하면 찜 목록은 무시하고 그 조건에 집중하세요.
+
+                    [핵심 가치 2: 검색 유형 판단]
+                    - CURRENT_LOCATION: "근처", "주변", "내 위치" 언급 시. (단, 좌표 정보가 있을 때만 유효)
+                    - SPECIFIC_REGION: "강남", "홍대" 등 지역명 명시 시.
+
+                    [🚨 검색어 생성 기준 (신중함)]
+                    - 사용자가 "배고파", "추천해줘" 처럼 **메뉴나 분위기를 말하지 않았다면** searchQuery를 null로 하고 질문을 하세요.
+                    - 예: "어떤 음식이 땡기시나요?", "한식, 양식 중 선호하시는 게 있나요?"
+
+                    [JSON 출력 형식]
+                    { 
+                        "searchQuery": "구글맵 검색어 (정보가 충분할 때만 작성, 부족하면 null)", 
+                        "searchType": "CURRENT_LOCATION" 또는 "SPECIFIC_REGION", 
+                        "reply": "사용자에게 건넬 말 (추천 이유를 함께 설명)" 
+                    }`
+                },
+                ...conversationHistory, 
+                {
+                    role: "user",
+                    content: `
+                    [참고 자료: 사용자 찜 목록 (참고만 할 것, 맹신 금지)]: ${favContext}
+                    [현재 위치]: ${locationInfo}
+                    [사용자 메시지]: "${message}"
+                    
+                    위 내용을 바탕으로 사용자가 지루하지 않게, 때로는 찜 목록과 다른 새로운 시도를 포함해서 답변하고 위치 유형을 판단해.`
+                }
+            ],
+            temperature: 0.7, 
+            response_format: { type: "json_object" }
+        });
+
+        const rawContent = completion.choices[0].message.content;
+        console.log("[AI 응답]:", rawContent);
+
+        let aiData;
+        try {
+            aiData = JSON.parse(cleanJsonString(rawContent)); 
+        } catch (e) {
+            aiData = { searchQuery: null, searchType: "CURRENT_LOCATION", reply: "죄송합니다. 잠시 후 다시 시도해 주세요." };
+        }
+
+        res.json({
+            success: true,
+            searchQuery: aiData.searchQuery || null,
+            searchType: aiData.searchType || "CURRENT_LOCATION",
+            aiMessage: aiData.reply || "어떤 음식을 찾으시나요?",
+            extractedInfo: aiData 
+        });
+
+    } catch (error) {
+        console.error("[스마트 검색 에러]:", error);
+        res.status(500).json({ success: false, message: "AI 처리 중 오류 발생" });
+    }
+});
 module.exports = router;
