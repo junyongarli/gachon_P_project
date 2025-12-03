@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,102 +6,110 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import {
-  Bell,
-  Plus,
-  Trash2,
-  Edit,
-  Search,
-  Eye,
-  Printer,
-} from 'lucide-react';
-import { motion } from 'motion/react';
+import { Bell, Plus, Trash2, Edit, Search, Eye, Printer } from 'lucide-react';
+import { motion } from 'framer-motion'; 
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext'; // 토큰 가져오기
 
 function AdminNotices() {
+  const { token } = useAuth(); // 인증 토큰
   const [searchQuery, setSearchQuery] = useState('');
-
-  // 공지사항 상태
-  const [notices, setNotices] = useState([
-    {
-      id: 1,
-      title: '맛맵 서비스 정기 점검 안내',
-      category: '점검',
-      content: '2024년 11월 30일 새벽 2시부터 4시까지 서비스 점검이 진행됩니다.',
-      createdAt: '2024-11-28',
-      views: 234,
-      isNew: true,
-    },
-    {
-      id: 2,
-      title: '새로운 AI 추천 기능 업데이트',
-      category: '이벤트',
-      content: '더욱 정확한 맛집 추천을 위한 AI 알고리즘이 업데이트되었습니다.',
-      createdAt: '2024-11-27',
-      views: 456,
-      isNew: true,
-    },
-    {
-      id: 3,
-      title: '개인정보 처리방침 변경 안내',
-      category: '정책',
-      content: '개인정보 처리방침이 일부 변경되었습니다.',
-      createdAt: '2024-11-25',
-      views: 189,
-      isNew: false,
-    },
-  ]);
+  
+  // [수정] 초기값 빈 배열로 시작 (API로 채움)
+  const [notices, setNotices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [noticeForm, setNoticeForm] = useState({
     title: '',
-    category: '',
+    category: '일반',
     content: '',
   });
 
-  // 공지사항 관련 함수
-  const handleCreateNotice = () => {
-    if (!noticeForm.title || !noticeForm.category || !noticeForm.content) {
-      toast.error('모든 필드를 입력해주세요');
+  // 1. 공지사항 목록 불러오기 (Read)
+  const fetchNotices = async () => {
+    try {
+      const response = await fetch('/api/community/notices');
+      const data = await response.json();
+      if (data.success) {
+        setNotices(data.notices);
+      }
+    } catch (error) {
+      console.error("공지사항 로딩 에러:", error);
+      toast.error("공지사항을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
+
+  // 2. 공지사항 등록 (Create)
+  const handleCreateNotice = async () => {
+    if (!noticeForm.title || !noticeForm.content) {
+      toast.error('제목과 내용을 입력해주세요');
       return;
     }
 
-    const newNotice = {
-      id: notices.length + 1,
-      ...noticeForm,
-      createdAt: new Date().toISOString().split('T')[0],
-      views: 0,
-      isNew: true,
-    };
+    try {
+      const response = await fetch('/api/community/notices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 관리자 권한 증명
+        },
+        body: JSON.stringify(noticeForm)
+      });
+      
+      const data = await response.json();
 
-    setNotices([newNotice, ...notices]);
-    setNoticeForm({ title: '', category: '', content: '' });
-    toast.success('공지사항이 등록되었습니다');
-  };
-
-  const handleDeleteNotice = (id) => {
-    if (confirm('정말로 이 공지사항을 삭제하시겠습니까?')) {
-      setNotices(notices.filter((notice) => notice.id !== id));
-      toast.success('공지사항이 삭제되었습니다');
+      if (response.ok && data.success) {
+        toast.success('공지사항이 등록되었습니다');
+        setNoticeForm({ title: '', category: '일반', content: '' }); // 폼 초기화
+        fetchNotices(); // 목록 새로고침 (서버 데이터 다시 받기)
+      } else {
+        toast.error(data.message || '등록 실패');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('서버 통신 오류');
     }
   };
 
-  const handlePrintNotice = (notice) => {
+  // 3. 공지사항 삭제 (Delete)
+  const handleDeleteNotice = async (id) => {
+    if (!confirm('정말로 이 공지사항을 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/community/notices/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success('삭제되었습니다');
+        setNotices(notices.filter((n) => n.id !== id)); // 화면에서 즉시 제거
+      } else {
+        toast.error(data.message || '삭제 실패');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('삭제 중 오류 발생');
+    }
+  };
+
+  const handlePrintNotice = () => {
     window.print();
-    toast.success('인쇄 준비 완료');
   };
 
   const getCategoryBadge = (category) => {
@@ -109,18 +117,24 @@ function AdminNotices() {
       점검: 'bg-blue-500',
       이벤트: 'bg-purple-500',
       정책: 'bg-gray-500',
+      일반: 'bg-green-500',
     };
-    return <Badge className={colors[category] || 'bg-gray-500'}>{category}</Badge>;
+    return <Badge className={`${colors[category] || 'bg-gray-500'} text-white`}>{category}</Badge>;
   };
 
   const filteredNotices = notices.filter((notice) =>
     notice.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // 통계 (실제 데이터 기반)
   const noticeStats = {
     total: notices.length,
-    new: notices.filter((n) => n.isNew).length,
-    totalViews: notices.reduce((sum, n) => sum + n.views, 0),
+    // 오늘 등록된 공지
+    new: notices.filter((n) => {
+        const today = new Date().toISOString().split('T')[0];
+        const noticeDate = new Date(n.createdAt).toISOString().split('T')[0];
+        return today === noticeDate;
+    }).length,
   };
 
   return (
@@ -131,7 +145,7 @@ function AdminNotices() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h1 className="mb-2 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
           공지사항 관리
         </h1>
         <p className="text-muted-foreground">
@@ -143,8 +157,7 @@ function AdminNotices() {
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         {[
           { label: '전체 공지', value: noticeStats.total, icon: Bell, color: 'from-blue-500 to-blue-600' },
-          { label: '신규 공지', value: noticeStats.new, icon: Plus, color: 'from-orange-500 to-orange-600' },
-          { label: '총 조회수', value: noticeStats.totalViews, icon: Eye, color: 'from-purple-500 to-purple-600' },
+          { label: '오늘 등록', value: noticeStats.new, icon: Plus, color: 'from-orange-500 to-orange-600' }
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -154,20 +167,20 @@ function AdminNotices() {
           >
             <Card className="backdrop-blur-sm bg-white/80">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-muted-foreground">{stat.label}</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <div className={`rounded-lg bg-gradient-to-br ${stat.color} p-2`}>
                   <stat.icon className="h-4 w-4 text-white" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div>{stat.value}</div>
+                <div className="text-2xl font-bold">{stat.value}</div>
               </CardContent>
             </Card>
           </motion.div>
         ))}
       </div>
 
-      {/* 공지사항 작성 */}
+      {/* 공지사항 작성 폼 */}
       <Card className="backdrop-blur-sm bg-white/80 mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -196,6 +209,7 @@ function AdminNotices() {
                   <SelectValue placeholder="카테고리 선택" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="일반">일반</SelectItem>
                   <SelectItem value="점검">점검</SelectItem>
                   <SelectItem value="이벤트">이벤트</SelectItem>
                   <SelectItem value="정책">정책</SelectItem>
@@ -214,7 +228,7 @@ function AdminNotices() {
             </div>
             <Button 
               onClick={handleCreateNotice}
-              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
               공지사항 등록
@@ -223,81 +237,72 @@ function AdminNotices() {
         </CardContent>
       </Card>
 
-      {/* 검색 */}
-      <Card className="backdrop-blur-sm bg-white/80 mb-6">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="공지사항 제목 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* 공지사항 목록 */}
       <Card className="backdrop-blur-sm bg-white/80">
         <CardHeader>
-          <CardTitle>공지사항 목록 ({filteredNotices.length}개)</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>공지사항 목록</CardTitle>
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>제목</TableHead>
-                <TableHead>카테고리</TableHead>
-                <TableHead>조회수</TableHead>
-                <TableHead>등록일</TableHead>
-                <TableHead className="text-right">작업</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredNotices.map((notice) => (
-                <TableRow key={notice.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {notice.isNew && (
-                        <Badge className="bg-red-500">NEW</Badge>
-                      )}
-                      <span>{notice.title}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getCategoryBadge(notice.category)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                      {notice.views}
-                    </div>
-                  </TableCell>
-                  <TableCell>{notice.createdAt}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handlePrintNotice(notice)}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteNotice(notice.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="text-center py-8 text-gray-500">로딩 중...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>제목</TableHead>
+                  <TableHead>카테고리</TableHead>
+                  <TableHead>등록일</TableHead>
+                  <TableHead className="text-right">작업</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredNotices.length > 0 ? (
+                  filteredNotices.map((notice) => (
+                    <TableRow key={notice.id}>
+                      <TableCell className="font-medium">{notice.title}</TableCell>
+                      <TableCell>{getCategoryBadge(notice.category)}</TableCell>
+                      <TableCell>{new Date(notice.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={handlePrintNotice}>
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          {/* 수정 버튼 (추후 구현 시 연결) */}
+                          <Button variant="ghost" size="icon">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteNotice(notice.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                      등록된 공지사항이 없습니다.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
