@@ -39,6 +39,10 @@ db.Inquiry = require('./inquiry')(sequelize, Sequelize);
 db.User.hasMany(db.Inquiry, { foreignKey: 'userId', as: 'inquiries' });
 db.Inquiry.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
 
+db.ChatLog = require('./chatLog')(sequelize, Sequelize);
+
+db.User.hasMany(db.ChatLog, { foreignKey: 'userId', as: 'chatLogs' });
+db.ChatLog.belongsTo(db.User, { foreignKey: 'userId', as: 'user' });
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 

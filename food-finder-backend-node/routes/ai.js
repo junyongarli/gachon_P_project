@@ -1,13 +1,15 @@
-// routes/ai.js
 const express = require('express');
 const router = express.Router();
 const OpenAI = require('openai');
-const { Favorite } = require('../models'); 
+
+// [핵심] ChatLog 모델을 포함하여 가져옵니다.
+const { Favorite, ChatLog } = require('../models'); 
 const { protect } = require('../middleware/authMiddleware');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const MODEL_ID = process.env.FINE_TUNED_MODEL_ID //|| "gpt-3.5-turbo"; 
+// 파인튜닝 모델 ID (없으면 기본 모델 사용)
+const MODEL_ID = process.env.FINE_TUNED_MODEL_ID || "gpt-3.5-turbo"; 
 
 // 1. [강화된] JSON 문자열 청소 함수
 function cleanJsonString(str) {
@@ -15,18 +17,23 @@ function cleanJsonString(str) {
     
     // (1) 마크다운 및 JSON 포맷 정리
     let cleaned = str.replace(/^```json\s*/, '').replace(/^```/, '').replace(/```$/, '').trim();
+    
+    // (2) 흔한 JSON 실수 교정 (중복 닫기 괄호 제거)
     cleaned = cleaned.replace(/}}\s*]/g, "}]").replace(/]\s*}/g, "]}");
+    
+    // (3) 맨 뒤에 불필요한 콤마 제거
+    cleaned = cleaned.replace(/,\s*}/g, "}");
+    cleaned = cleaned.replace(/,\s*]/g, "]");
 
-    // (2) [핵심] AI가 뱉은 이상한 태그(#@...#)를 자연스러운 말로 치환
-    // 예: "#@LOCATION# 백반" -> "유명한 백반"
+    // (4) AI가 뱉은 이상한 태그(#@...#)를 자연스러운 말로 치환
     cleaned = cleaned.replace(/#@LOCATION#/g, "근처"); 
     cleaned = cleaned.replace(/#@소속#/g, "추천");
-    cleaned = cleaned.replace(/#@.*?#/g, "이 곳"); // 나머지 모든 #@...# 태그 제거
+    cleaned = cleaned.replace(/#@.*?#/g, "이 곳"); 
 
     return cleaned;
 }
 
-// 2. 키워드 매핑 함수 (기존과 동일 + 보완)
+// 2. 키워드 매핑 함수 (기존 유지)
 function mapToKeyword(text) {
     const t = text || "";
     
@@ -55,11 +62,14 @@ function mapToKeyword(text) {
         
     if (t.includes('근처') || t.includes('가까운') || t.includes('주변') || t.includes('동네') || t.includes('도보')) return 'near';
     if (t.includes('멀리') || t.includes('이동') || t.includes('차량') || t.includes('드라이브') || t.includes('교외')) return 'far';
-    return null; // 알 수 없는 말은 무시
+    return null; 
 }
 
+// ==========================================
+// [A] 퀴즈 질문 생성 API
+// ==========================================
 router.post('/quiz/generate', protect, async (req, res) => {
-    console.log(`[AI 요청 시작] 사용 모델: ${MODEL_ID}`);
+    console.log(`[AI 퀴즈 요청] 사용 모델: ${MODEL_ID}`);
 
     try {
         const userId = req.user.id;
@@ -105,32 +115,25 @@ router.post('/quiz/generate', protect, async (req, res) => {
         });
 
         const rawContent = completion.choices[0].message.content;
-        console.log("[AI 원본 응답]:", rawContent);
-
-        // JSON 파싱 및 보정
+        
         let result;
         try {
             const cleanedContent = cleanJsonString(rawContent);
             result = JSON.parse(cleanedContent);
         } catch (parseError) {
             console.error("[JSON 파싱 실패]:", parseError.message);
-            // 한 번 더 시도 (끝부분 잘림 보정)
             try {
                 const fixEnd = rawContent.trim().replace(/]+$/, '') + "]}"; 
                 result = JSON.parse(fixEnd);
-                console.log("[JSON 자동 복구 성공]");
             } catch (retryError) {
-                 console.error("[JSON 복구 실패, 기본 질문 사용]");
                  throw new Error("JSON 파싱 불가");
             }
         }
 
-        // 데이터 검증
         if (!result.questions || !Array.isArray(result.questions)) {
             throw new Error("questions 배열이 없습니다.");
         }
 
-        // 변환
         const formattedQuestions = result.questions.map((item) => ({
             question: item.q,
             options: [
@@ -139,15 +142,17 @@ router.post('/quiz/generate', protect, async (req, res) => {
             ]
         }));
 
-        console.log("[최종 변환 성공]:", formattedQuestions.length, "개 질문 생성됨");
         res.json({ success: true, data: formattedQuestions });
 
     } catch (error) {
-        console.error("[최종 에러 발생]:", error.message);
+        console.error("[퀴즈 생성 에러]:", error.message);
         res.json({ success: false, data: [], error: error.message });
     }
 });
-// 스마트 검색 (대화형 맛집 추천) API
+
+// ==========================================
+// [B] 스마트 검색 (대화형) API
+// ==========================================
 router.post('/smart-search', protect, async (req, res) => {
     console.log(`[스마트 검색] 사용자: ${req.body.message}`);
 
@@ -155,75 +160,115 @@ router.post('/smart-search', protect, async (req, res) => {
         const userId = req.user.id;
         const { message, userLocation, history } = req.body;
 
-        // 1. 찜 목록 조회 (취향 데이터)
-        const favorites = await Favorite.findAll({
-            where: { userId },
-            attributes: ['restaurant_name', 'category'],
-            limit: 10,
-            order: [['createdAt', 'DESC']]
-        });
+        // 1. 찜 목록 조회
+        let favContext = "없음";
+        try {
+            const favorites = await Favorite.findAll({
+                where: { userId },
+                attributes: ['restaurant_name', 'category'],
+                limit: 10,
+                order: [['createdAt', 'DESC']]
+            });
+            if (favorites.length > 0) {
+                favContext = favorites.map(f => `${f.restaurant_name}(${f.category})`).join(', ');
+            }
+        } catch (err) {
+            console.warn("찜 목록 조회 실패 (무시):", err.message);
+        }
 
-        const favContext = favorites.length > 0
-            ? favorites.map(f => `${f.restaurant_name}(${f.category})`).join(', ')
-            : "없음";
+        // 2. 대화 로그(ChatLog) 조회 (과거 취향 분석 - 횟수 정보 제거)
+        let prefContext = "데이터 없음";
+        try {
+            if (typeof ChatLog !== 'undefined') { 
+                const recentLogs = await ChatLog.findAll({
+                    where: { userId },
+                    order: [['createdAt', 'DESC']],
+                    limit: 20,
+                    attributes: ['keywords']
+                });
 
-        // 2. 대화 기록 정리
-        const conversationHistory = history ? history.map(msg => ({
-            role: msg.role,
-            content: msg.content
-        })).slice(-6) : [];
+                const keywordCounts = {};
+                recentLogs.forEach(log => {
+                    if (log.keywords) {
+                        const words = log.keywords.split(',');
+                        words.forEach(w => {
+                            const word = w.trim();
+                            if (word) keywordCounts[word] = (keywordCounts[word] || 0) + 1;
+                        });
+                    }
+                });
 
-        // 3. 위치 정보 문자열 생성 (AI에게 강제 인식)
+                // [수정] 횟수(val)는 제거하고 키워드만 나열하여 AI의 집착 방지
+                const topKeywords = Object.entries(keywordCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                    .map(([key, val]) => `${key}`) 
+                    .join(', ');
+                
+                if (topKeywords) prefContext = topKeywords;
+            }
+        } catch (dbError) {
+            console.warn("⚠️ 대화 로그 조회 실패 (무시):", dbError.message);
+        }
+
+        console.log(`[사용자 과거 키워드]: ${prefContext}`);
+
+        // 3. 위치 정보 문자열 생성
         let locationInfo = "위치 정보 없음";
         if (userLocation && userLocation.lat && userLocation.lng) {
              locationInfo = `위도 ${userLocation.lat}, 경도 ${userLocation.lng} (사용자의 현재 위치임)`;
         }
 
-        // 4. AI 호출 (요청하신 프롬프트 적용)
+        const conversationHistory = history ? history.slice(-6) : [];
+
+        // 4. AI 호출 (프롬프트: 기존 구조 유지 + 거절/다양성 강화)
         const completion = await openai.chat.completions.create({
             model: MODEL_ID, 
             messages: [
                 {
                     role: "system",
-                    // 요청하신 프롬프트 내용 그대로 적용
-                    content: `당신은 '맛맵'의 유연하고 똑똑한 맛집 추천 AI입니다. 사용자의 입력을 분석하여 JSON으로 응답하세요.
+                    content: `당신은 '맛맵'의 유연하고 똑똑한 맛집 추천 AI입니다. 다음 규칙을 엄격히 준수하여 JSON으로 응답하세요.
 
                     [필수 규칙: 위치 처리]
                     1. [현재 위치] 정보가 좌표(위도/경도)로 주어지면, 사용자가 "근처", "주변", "내 위치"라고 할 때 **절대 "위치를 모른다"고 하지 마세요.**
                     2. 대신 "계신 곳 근처에서 찾아드릴게요!" 또는 "주변 맛집을 검색합니다"라고 자연스럽게 응대하고, 'CURRENT_LOCATION' 타입으로 반환하세요.
 
-                    [핵심 가치 1: 다양성과 의외성]
-                    - 찜 목록은 힌트일 뿐입니다. 50% 확률로 찜 목록과 다른 새로운 스타일을 제안하세요.
-                    - 거절("싫어") 시 즉시 다른 메뉴를 제안하세요.
-                    - 문맥 최우선: 사용자가 "매운거", "국물" 등 구체적인 조건을 말하면 찜 목록은 무시하고 그 조건에 집중하세요.
+                    [핵심 가치 1: 다양성과 의외성 (집착 금지)]
+                    - 찜 목록과 과거 키워드는 단순 참고용일 뿐입니다. 50% 확률로 이와 다른 새로운 스타일을 제안하세요.
+                    - **거절("싫어", "아니", "말고")** 시 **직전에 언급된 메뉴나 스타일은 절대 다시 추천하지 말고, 즉시 다른 카테고리로 전환하세요.**
+                    - 문맥 최우선: 사용자가 구체적인 조건(매운거, 국물 등)을 말하면 과거 취향은 무시하고 그 조건에 집중하세요.
 
                     [핵심 가치 2: 검색 유형 판단]
-                    - CURRENT_LOCATION: "근처", "주변", "내 위치" 언급 시. (단, 좌표 정보가 있을 때만 유효)
+                    - CURRENT_LOCATION: "근처", "주변", "내 위치" 언급 시 (좌표 있을 때).
                     - SPECIFIC_REGION: "강남", "홍대" 등 지역명 명시 시.
 
                     [🚨 검색어 생성 기준 (신중함)]
                     - 사용자가 "배고파", "추천해줘" 처럼 **메뉴나 분위기를 말하지 않았다면** searchQuery를 null로 하고 질문을 하세요.
-                    - 예: "어떤 음식이 땡기시나요?", "한식, 양식 중 선호하시는 게 있나요?"
+
+                    [추가 임무: 키워드 추출]
+                    - 사용자의 발언에서 핵심 맛집 키워드(음식명, 맛, 분위기, 지역 등)를 추출하여 'extractedKeywords' 배열에 담아주세요.
 
                     [JSON 출력 형식]
                     { 
                         "searchQuery": "구글맵 검색어 (정보가 충분할 때만 작성, 부족하면 null)", 
                         "searchType": "CURRENT_LOCATION" 또는 "SPECIFIC_REGION", 
-                        "reply": "사용자에게 건넬 말 (추천 이유를 함께 설명)" 
+                        "reply": "사용자에게 건넬 말",
+                        "extractedKeywords": ["키워드1", "키워드2"]
                     }`
                 },
                 ...conversationHistory, 
                 {
                     role: "user",
                     content: `
-                    [참고 자료: 사용자 찜 목록 (참고만 할 것, 맹신 금지)]: ${favContext}
+                    [참고 자료 1: 찜 목록]: ${favContext}
+                    [참고 자료 2: 과거 대화 키워드(단순 언급된 단어들이니 맹신 금지)]: ${prefContext}
                     [현재 위치]: ${locationInfo}
                     [사용자 메시지]: "${message}"
                     
-                    위 내용을 바탕으로 사용자가 지루하지 않게, 때로는 찜 목록과 다른 새로운 시도를 포함해서 답변하고 위치 유형을 판단해.`
+                    위 정보를 바탕으로 답변하고, 위치 유형 판단 및 키워드 추출을 수행해. **사용자가 싫다고 한 건 절대 권하지 마.**`
                 }
             ],
-            temperature: 0.7, 
+            temperature: 0.8, // 다양성을 위해 창의성 높임
             response_format: { type: "json_object" }
         });
 
@@ -234,7 +279,19 @@ router.post('/smart-search', protect, async (req, res) => {
         try {
             aiData = JSON.parse(cleanJsonString(rawContent)); 
         } catch (e) {
-            aiData = { searchQuery: null, searchType: "CURRENT_LOCATION", reply: "죄송합니다. 잠시 후 다시 시도해 주세요." };
+            aiData = { searchQuery: null, searchType: "CURRENT_LOCATION", reply: "죄송합니다. 잠시 후 다시 시도해 주세요.", extractedKeywords: [] };
+        }
+
+        // 5. 대화 로그 저장 (비동기)
+        if (typeof ChatLog !== 'undefined' && aiData.extractedKeywords && Array.isArray(aiData.extractedKeywords) && aiData.extractedKeywords.length > 0) {
+            const keywordsString = aiData.extractedKeywords.join(',');
+            
+            ChatLog.create({
+                userId,
+                query: message,
+                keywords: keywordsString,
+                suggestedQuery: aiData.searchQuery
+            }).catch(err => console.warn("로그 저장 실패 (무시):", err.message));
         }
 
         res.json({
@@ -250,4 +307,5 @@ router.post('/smart-search', protect, async (req, res) => {
         res.status(500).json({ success: false, message: "AI 처리 중 오류 발생" });
     }
 });
+
 module.exports = router;
