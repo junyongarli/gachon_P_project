@@ -54,6 +54,9 @@ router.post('/login', async (req, res) => {
       // 401 Unauthorized: 인증 실패
       return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
+    if (user.role === 'admin') {
+      return res.status(403).json({ success: false, message: '관리자는 관리자 전용 페이지를 이용해주세요.' });
+    }
     if (user.status === 'suspended') {
       return res.status(403).json({ message: '정지된 계정입니다. 고객센터에 문의하세요.' });
     }
@@ -65,6 +68,45 @@ router.post('/login', async (req, res) => {
     );
     
     // 4. 성공 응답 (토큰과 사용자 정보 함께 보내기)
+    res.json({
+      success: true,
+      access_token: token,
+      user: { id: user.id, username: user.username, email: user.email, role: user.role }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
+// ==========================================
+// [관리자 전용] 로그인 API 
+// 경로: /api/auth/admin-login
+// ==========================================
+router.post('/admin-login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ where: { email } });
+
+    // 1. 계정 및 비밀번호 확인
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ success: false, message: '관리자 계정 정보가 올바르지 않습니다.' });
+    }
+
+    // 2. [핵심] 관리자 권한(role) 체크
+    if (user.role !== 'admin') {
+      console.warn(`[보안 경고] 일반 사용자(${email})가 관리자 로그인을 시도했습니다.`);
+      return res.status(403).json({ success: false, message: '접근 권한이 없습니다. (관리자 전용)' });
+    }
+
+    // 3. 토큰 발급
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: '2h' } // 관리자는 편의상 2시간 등으로 조정 가능
+    );
+    
     res.json({
       success: true,
       access_token: token,

@@ -46,7 +46,7 @@ function App() {
         <Route path="/settings" element={<><Navbar /><SettingsPage /></>} />
         <Route path="/signup" element={<><Navbar /><SignupPage /></>} />
         <Route path="/mypage" element={<><Navbar /><MyPage /></>} /> {/* 마이페이지 */}
-        
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         {/* 관리자 전용 라우트 (중첩 라우, Navbar 없음) */}
        <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminLayout />}>

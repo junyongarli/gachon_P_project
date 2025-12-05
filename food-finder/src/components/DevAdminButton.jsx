@@ -4,11 +4,11 @@ import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /**
- * 개발용 관리자 로그인 버튼
- * 클릭 시 즉시 관리자로 로그인하고 관리자 패널로 이동
+ * 관리자 로그인 버튼
+ * 클릭 시 관리자 로그인 페이지(/admin/login)로 이동
  */
 function DevAdminButton() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // 이미 관리자로 로그인된 경우 버튼 숨김
@@ -17,22 +17,8 @@ function DevAdminButton() {
   }
 
   const handleClick = () => {
-    // 개발용 관리자 계정으로 즉시 로그인
-    const adminUser = {
-      id: 999,
-      username: '관리자',
-      email: 'admin@foodfinder.com',
-      role: 'admin',
-    };
-    const fakeToken = 'dev-admin-token-' + Date.now();
-    
-    // 로그인 처리
-    login(adminUser, fakeToken);
-    
-    // 관리자 패널로 즉시 이동
-    setTimeout(() => {
-      navigate('/admin');
-    }, 100);
+    // 관리자 로그인 페이지로 이동
+    navigate('/admin/login');
   };
 
   return (

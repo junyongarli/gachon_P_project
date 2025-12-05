@@ -1,3 +1,5 @@
+// src/pages/admin/AdminLoginPage.jsx
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -22,19 +24,19 @@ function AdminLoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/auth/login', {
+      // [수정] 관리자 전용 로그인 API 호출
+      const response = await fetch('/api/auth/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      const responseText = await response.text();
-      const data = JSON.parse(responseText);
+      const data = await response.json();
 
-      if (response.ok) {
-        // 관리자 권한 확인
+      if (response.ok && data.success) {
+        // [이중 체크] 토큰 내 정보를 확인하거나 응답값 확인
         if (data.user.role !== 'admin') {
-          setError('관리자 권한이 없습니다.');
+          setError('관리자 권한이 없는 계정입니다.');
           return;
         }
         
@@ -42,32 +44,30 @@ function AdminLoginPage() {
         // 관리자 페이지로 이동
         navigate('/admin');
       } else {
-        // API 실패 시 목업 데이터로 로그인 (개발용)
-        console.warn('⚠️ 백엔드 API 없음 - 목업 데이터로 로그인합니다');
-        const mockAdminUser = {
-          id: 1,
-          email: 'admin@matmap.com',
-          name: '관리자',
-          role: 'admin'
-        };
-        const mockToken = 'mock-admin-token-' + Date.now();
+        // API 에러 메시지 표시
+        setError(data.message || '관리자 로그인에 실패했습니다.');
         
-        login(mockAdminUser, mockToken);
-        navigate('/admin');
+        // (개발용: 백엔드 연결 실패 시 목업 처리 유지)
+        if (!response.ok && response.status !== 401 && response.status !== 403) {
+             console.warn('⚠️ 백엔드 API 응답 오류 - 목업 데이터로 로그인 시도 (개발용)');
+             // 실제 배포 시에는 이 부분 제거 권장
+             if (email === 'admin@matmap.com' && password === 'admin123') {
+                 const mockAdminUser = {
+                   id: 1,
+                   email: 'admin@matmap.com',
+                   name: '관리자',
+                   role: 'admin'
+                 };
+                 const mockToken = 'mock-admin-token-' + Date.now();
+                 login(mockAdminUser, mockToken);
+                 navigate('/admin');
+             }
+        }
       }
     } catch (err) {
-      // 네트워크 오류 등으로 API 호출 실패 시에도 목업 데이터로 로그인 (개발용)
-      console.warn('⚠️ 서버 연결 실패 - 목업 데이터로 로그인합니다:', err.message);
-      const mockAdminUser = {
-        id: 1,
-        email: 'admin@matmap.com',
-        name: '관리자',
-        role: 'admin'
-      };
-      const mockToken = 'mock-admin-token-' + Date.now();
-      
-      login(mockAdminUser, mockToken);
-      navigate('/admin');
+      // 네트워크 오류 시 처리
+      console.warn('⚠️ 서버 연결 실패:', err.message);
+      setError('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
     }
