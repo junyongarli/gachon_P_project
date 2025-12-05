@@ -126,42 +126,53 @@ function SmartSearchPage() {
   const performGoogleSearch = (query, searchType) => {
     return new Promise((resolve) => {
         const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+        
         const request = { query: query };
         let limitRadius = null; 
 
+        // [수정] userLocation이 있을 때만 위치 기반 검색 적용
+        // (없으면 그냥 검색어만으로 전 세계 검색 -> 어차피 쿼리에 '가천대역'이 있으면 잘 나옴)
         if (searchType === 'CURRENT_LOCATION' && userLocation) {
-            // 내 근처: GPS 기준 + 반경 2km
             request.location = new window.google.maps.LatLng(userLocation.lat, userLocation.lng);
             request.radius = 2000; 
             limitRadius = 2000;
             console.log("📍 내 주변 2km 검색 모드");
         } else {
-            // 지역 검색
-            console.log(`📍 지역 검색 모드: "${query}"`);
+            console.log(`📍 지역/키워드 검색 모드: "${query}"`);
         }
 
         service.textSearch(request, (results, status) => {
             if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
                 const allowedTypes = ['restaurant', 'food', 'cafe', 'bakery', 'bar', 'meal_takeaway'];
                 
-                const filtered = results.filter(place => {
-                    const isRestaurant = place.types && place.types.some(t => allowedTypes.includes(t));
-                    if (!isRestaurant) return false;
+                // 1차 필터: 음식점 타입
+                let filtered = results.filter(place => 
+                    place.types && place.types.some(t => allowedTypes.includes(t))
+                );
 
-                    if (limitRadius && userLocation && place.geometry) {
+                // 2차 필터: 거리 (위치 정보가 있을 때만)
+                if (limitRadius && userLocation) {
+                    const filteredByDistance = filtered.filter(place => {
+                        if (!place.geometry) return false;
                         const myPos = new window.google.maps.LatLng(userLocation.lat, userLocation.lng);
                         const distance = window.google.maps.geometry.spherical.computeDistanceBetween(myPos, place.geometry.location);
-                        if (distance > limitRadius) return false; 
+                        
                         place.distanceText = (distance / 1000).toFixed(1) + "km";
                         place.distanceVal = distance;
-                    }
-                    return true;
-                });
-                
-                if (limitRadius) {
-                    filtered.sort((a, b) => (a.distanceVal || 0) - (b.distanceVal || 0));
-                }
+                        
+                        return distance <= limitRadius;
+                    });
 
+                    // [핵심 안전장치] 거리 필터 썼는데 결과가 0개면? -> 필터 해제하고 원본 보여줌!
+                    // (GPS 오차나 "가천대역" 검색어 때문에 2km 밖으로 잡힐 수 있음)
+                    if (filteredByDistance.length > 0) {
+                        filtered = filteredByDistance;
+                        filtered.sort((a, b) => (a.distanceVal || 0) - (b.distanceVal || 0));
+                    } else {
+                        console.warn("⚠️ 거리 필터로 결과 0개 -> 원본 결과 표시");
+                    }
+                }
+                
                 const formatted = filtered.slice(0, 5).map(place => ({
                     id: place.place_id,
                     name: place.name,
@@ -172,8 +183,8 @@ function SmartSearchPage() {
                     photoUrl: place.photos && place.photos.length > 0 
                         ? place.photos[0].getUrl({ maxWidth: 400 }) 
                         : null,
-                    url: `http://googleusercontent.com/maps.google.com/?q=place_id:${place.place_id}`,
-                    distanceText: place.distanceText
+                    url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+                    distanceText: place.distanceText || null
                 }));
                 resolve(formatted);
             } else {
@@ -182,7 +193,6 @@ function SmartSearchPage() {
         });
     });
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50 p-4">
       <div className="max-w-4xl mx-auto">

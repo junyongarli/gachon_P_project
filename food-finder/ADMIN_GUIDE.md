@@ -19,7 +19,7 @@ role === 'admin'?
 #### **AuthContext** (`/contexts/AuthContext.jsx`)
 - 사용자 인증 상태 관리
 - localStorage에 user와 token 저장
-- `user.role`로 권한 체크
+- `user.role`로 권한 체크y
 
 ```javascript
 const { user, token, login, logout } = useAuth();

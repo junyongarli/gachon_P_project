@@ -11,18 +11,20 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Bell, Plus, Trash2, Edit, Search, Eye, Printer } from 'lucide-react';
+import { Bell, Plus, Trash2, Edit, Search, Eye, Printer, X } from 'lucide-react'; // X 아이콘 추가
 import { motion } from 'framer-motion'; 
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext'; // 토큰 가져오기
+import { useAuth } from '@/contexts/AuthContext'; 
 
 function AdminNotices() {
-  const { token } = useAuth(); // 인증 토큰
+  const { token } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   
-  // [수정] 초기값 빈 배열로 시작 (API로 채움)
   const [notices, setNotices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // [수정 1] 현재 수정 중인 공지사항 ID (null이면 작성 모드)
+  const [editingId, setEditingId] = useState(null);
 
   const [noticeForm, setNoticeForm] = useState({
     title: '',
@@ -30,7 +32,7 @@ function AdminNotices() {
     content: '',
   });
 
-  // 1. 공지사항 목록 불러오기 (Read)
+  // 1. 공지사항 목록 불러오기
   const fetchNotices = async () => {
     try {
       const response = await fetch('/api/community/notices');
@@ -50,19 +52,26 @@ function AdminNotices() {
     fetchNotices();
   }, []);
 
-  // 2. 공지사항 등록 (Create)
-  const handleCreateNotice = async () => {
+  // [수정 2] 등록 및 수정 통합 핸들러 (Create & Update)
+  const handleSubmitNotice = async () => {
     if (!noticeForm.title || !noticeForm.content) {
       toast.error('제목과 내용을 입력해주세요');
       return;
     }
 
+    // editingId가 있으면 수정(PUT), 없으면 등록(POST)
+    const url = editingId 
+      ? `/api/community/notices/${editingId}` 
+      : '/api/community/notices';
+    
+    const method = editingId ? 'PUT' : 'POST';
+
     try {
-      const response = await fetch('/api/community/notices', {
-        method: 'POST',
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // 관리자 권한 증명
+          'Authorization': `Bearer ${token}` 
         },
         body: JSON.stringify(noticeForm)
       });
@@ -70,11 +79,15 @@ function AdminNotices() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        toast.success('공지사항이 등록되었습니다');
-        setNoticeForm({ title: '', category: '일반', content: '' }); // 폼 초기화
-        fetchNotices(); // 목록 새로고침 (서버 데이터 다시 받기)
+        toast.success(editingId ? '공지사항이 수정되었습니다' : '공지사항이 등록되었습니다');
+        
+        // 폼 및 상태 초기화
+        setNoticeForm({ title: '', category: '일반', content: '' });
+        setEditingId(null); 
+        
+        fetchNotices(); // 목록 새로고침
       } else {
-        toast.error(data.message || '등록 실패');
+        toast.error(data.message || '처리 실패');
       }
     } catch (error) {
       console.error(error);
@@ -82,7 +95,25 @@ function AdminNotices() {
     }
   };
 
-  // 3. 공지사항 삭제 (Delete)
+  // [수정 3] 수정 버튼 클릭 시 폼에 데이터 채우기
+  const handleEditClick = (notice) => {
+    setEditingId(notice.id);
+    setNoticeForm({
+      title: notice.title,
+      category: notice.category,
+      content: notice.content
+    });
+    // 스크롤을 맨 위(입력 폼)로 이동
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // [수정 4] 수정 취소 버튼 핸들러
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNoticeForm({ title: '', category: '일반', content: '' });
+  };
+
+  // 3. 공지사항 삭제
   const handleDeleteNotice = async (id) => {
     if (!confirm('정말로 이 공지사항을 삭제하시겠습니까?')) return;
 
@@ -98,7 +129,11 @@ function AdminNotices() {
 
       if (response.ok && data.success) {
         toast.success('삭제되었습니다');
-        setNotices(notices.filter((n) => n.id !== id)); // 화면에서 즉시 제거
+        // 현재 수정 중인 글을 삭제했다면 폼 초기화
+        if (id === editingId) {
+            handleCancelEdit();
+        }
+        setNotices(notices.filter((n) => n.id !== id)); 
       } else {
         toast.error(data.message || '삭제 실패');
       }
@@ -126,10 +161,8 @@ function AdminNotices() {
     notice.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 통계 (실제 데이터 기반)
   const noticeStats = {
     total: notices.length,
-    // 오늘 등록된 공지
     new: notices.filter((n) => {
         const today = new Date().toISOString().split('T')[0];
         const noticeDate = new Date(n.createdAt).toISOString().split('T')[0];
@@ -180,12 +213,21 @@ function AdminNotices() {
         ))}
       </div>
 
-      {/* 공지사항 작성 폼 */}
-      <Card className="backdrop-blur-sm bg-white/80 mb-6">
+      {/* 공지사항 작성/수정 폼 */}
+      <Card className={`backdrop-blur-sm bg-white/80 mb-6 border-l-4 ${editingId ? 'border-l-blue-500' : 'border-l-orange-500'}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            새 공지사항 작성
+            {editingId ? (
+                <>
+                    <Edit className="h-5 w-5 text-blue-500" />
+                    <span className="text-blue-600">공지사항 수정 모드</span>
+                </>
+            ) : (
+                <>
+                    <Plus className="h-5 w-5 text-orange-500" />
+                    <span>새 공지사항 작성</span>
+                </>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -226,13 +268,27 @@ function AdminNotices() {
                 onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })}
               />
             </div>
-            <Button 
-              onClick={handleCreateNotice}
-              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              공지사항 등록
-            </Button>
+            
+            <div className="flex gap-2">
+                <Button 
+                onClick={handleSubmitNotice}
+                className={`flex-1 text-white ${editingId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600'}`}
+                >
+                {editingId ? <Edit className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                {editingId ? '수정 완료' : '공지사항 등록'}
+                </Button>
+
+                {editingId && (
+                    <Button 
+                        variant="outline" 
+                        onClick={handleCancelEdit}
+                        className="border-red-200 text-red-500 hover:bg-red-50"
+                    >
+                        <X className="h-4 w-4 mr-2" />
+                        수정 취소
+                    </Button>
+                )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -278,10 +334,16 @@ function AdminNotices() {
                           <Button variant="ghost" size="icon" onClick={handlePrintNotice}>
                             <Printer className="h-4 w-4" />
                           </Button>
-                          {/* 수정 버튼 (추후 구현 시 연결) */}
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
+                          
+                          {/* [수정 5] 수정 버튼 클릭 이벤트 연결 */}
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleEditClick(notice)}
+                          >
+                            <Edit className="h-4 w-4 text-blue-500" />
                           </Button>
+
                           <Button
                             variant="ghost"
                             size="icon"
