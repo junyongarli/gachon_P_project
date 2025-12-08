@@ -39,7 +39,6 @@ function SmartSearchPage() {
         setIsApiLoaded(true);
     }
 
-    // [수정됨] 위치 권한 요청 및 에러 처리 (기본값 가천대 설정)
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -48,7 +47,7 @@ function SmartSearchPage() {
             },
             (err) => {
                 console.warn("⚠️ GPS 위치 확보 실패 (권한 거부/HTTP):", err);
-                // [중요] GPS 실패 시 '가천대 글로벌캠퍼스'를 기본 위치로 강제 설정
+                // GPS 실패 시 기본값 (가천대)
                 const defaultLoc = { lat: 37.4508, lng: 127.1288 }; 
                 setUserLocation(defaultLoc);
                 console.log("📍 기본 위치(가천대)로 설정됨");
@@ -56,7 +55,6 @@ function SmartSearchPage() {
             { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
         );
     } else {
-        // GPS 미지원 브라우저
         const defaultLoc = { lat: 37.4508, lng: 127.1288 }; 
         setUserLocation(defaultLoc);
     }
@@ -88,21 +86,39 @@ function SmartSearchPage() {
             body: JSON.stringify({ 
                 message: messageToSend,
                 history: currentHistory.map(m => ({ role: m.role, content: m.content })),
-                userLocation // 여기서 null이 아니어야 함!
+                userLocation 
             })
         });
         const data = await response.json();
 
         if (data.success) {
             let searchResults = [];
+            // [수정] AI 메시지 원본을 변수에 저장 (치환 작업을 위해)
+            let finalAiMessage = data.aiMessage || "결과를 확인해보세요.";
+
             if (data.searchQuery && isApiLoaded && window.google) {
                 searchResults = await performGoogleSearch(data.searchQuery, data.searchType);
+                
+                // ============================================================
+                // [NEW] #@소속# 태그 치환 로직 (구글 검색 결과 1위 가게명 사용)
+                // ============================================================
+                if (searchResults && searchResults.length > 0) {
+                    const topPlaceName = searchResults[0].name; // 1순위 가게 이름
+                    // 태그를 실제 가게 이름으로 변경 (작은 따옴표로 강조)
+                    finalAiMessage = finalAiMessage.replace(/#@소속#/g, `'${topPlaceName}'`);
+                } else {
+                    // 검색 결과가 0개인 경우 안전장치 (문맥이 이상해지지 않게 일반 명사로 변경)
+                    finalAiMessage = finalAiMessage.replace(/#@소속#/g, "이 주변 맛집");
+                }
+            } else {
+                // 검색어가 없거나 API 로드 실패 시 태그 제거
+                finalAiMessage = finalAiMessage.replace(/#@소속#/g, "추천 장소");
             }
 
             const newAiMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: data.aiMessage || "결과를 확인해보세요.",
+                content: finalAiMessage, // [수정] 치환된 최종 메시지 사용
                 restaurants: searchResults
             };
             setChatMessages(prev => [...prev, newAiMsg]);
@@ -130,8 +146,6 @@ function SmartSearchPage() {
         const request = { query: query };
         let limitRadius = null; 
 
-        // [수정] userLocation이 있을 때만 위치 기반 검색 적용
-        // (없으면 그냥 검색어만으로 전 세계 검색 -> 어차피 쿼리에 '가천대역'이 있으면 잘 나옴)
         if (searchType === 'CURRENT_LOCATION' && userLocation) {
             request.location = new window.google.maps.LatLng(userLocation.lat, userLocation.lng);
             request.radius = 2000; 
@@ -145,12 +159,10 @@ function SmartSearchPage() {
             if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
                 const allowedTypes = ['restaurant', 'food', 'cafe', 'bakery', 'bar', 'meal_takeaway'];
                 
-                // 1차 필터: 음식점 타입
                 let filtered = results.filter(place => 
                     place.types && place.types.some(t => allowedTypes.includes(t))
                 );
 
-                // 2차 필터: 거리 (위치 정보가 있을 때만)
                 if (limitRadius && userLocation) {
                     const filteredByDistance = filtered.filter(place => {
                         if (!place.geometry) return false;
@@ -163,8 +175,7 @@ function SmartSearchPage() {
                         return distance <= limitRadius;
                     });
 
-                    // [핵심 안전장치] 거리 필터 썼는데 결과가 0개면? -> 필터 해제하고 원본 보여줌!
-                    // (GPS 오차나 "가천대역" 검색어 때문에 2km 밖으로 잡힐 수 있음)
+                    // [안전장치] 거리 필터 적용 후 결과가 없으면 원본 결과를 사용
                     if (filteredByDistance.length > 0) {
                         filtered = filteredByDistance;
                         filtered.sort((a, b) => (a.distanceVal || 0) - (b.distanceVal || 0));
@@ -183,7 +194,7 @@ function SmartSearchPage() {
                     photoUrl: place.photos && place.photos.length > 0 
                         ? place.photos[0].getUrl({ maxWidth: 400 }) 
                         : null,
-                    url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+                    url: `http://googleusercontent.com/maps.google.com/maps/place?q=place_id:${place.place_id}`, // URL 수정됨
                     distanceText: place.distanceText || null
                 }));
                 resolve(formatted);
@@ -193,6 +204,7 @@ function SmartSearchPage() {
         });
     });
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50 p-4">
       <div className="max-w-4xl mx-auto">
