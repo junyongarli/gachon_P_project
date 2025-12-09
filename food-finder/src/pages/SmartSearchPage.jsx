@@ -11,6 +11,18 @@ import {
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
+// [유틸리티] 한글 받침에 따라 조사 선택 (은/는, 이/가, 을/를)
+const getJosa = (word, type) => {
+    if (!word) return '';
+    const lastChar = word.charCodeAt(word.length - 1);
+    const hasJongseong = (lastChar - 0xAC00) % 28 > 0;
+
+    if (type === '은/는') return hasJongseong ? '은' : '는';
+    if (type === '이/가') return hasJongseong ? '이' : '가';
+    if (type === '을/를') return hasJongseong ? '을' : '를';
+    return '';
+};
+
 function SmartSearchPage() {
   const { user, token } = useAuth();
   
@@ -47,7 +59,6 @@ function SmartSearchPage() {
             },
             (err) => {
                 console.warn("⚠️ GPS 위치 확보 실패 (권한 거부/HTTP):", err);
-                // GPS 실패 시 기본값 (가천대)
                 const defaultLoc = { lat: 37.4508, lng: 127.1288 }; 
                 setUserLocation(defaultLoc);
                 console.log("📍 기본 위치(가천대)로 설정됨");
@@ -93,32 +104,43 @@ function SmartSearchPage() {
 
         if (data.success) {
             let searchResults = [];
-            // [수정] AI 메시지 원본을 변수에 저장 (치환 작업을 위해)
             let finalAiMessage = data.aiMessage || "결과를 확인해보세요.";
+
+            // [디버깅] AI가 준 원본 메시지 확인
+            console.log("🤖 AI 원본 응답:", finalAiMessage);
+            console.log("🔍 검색어:", data.searchQuery);
 
             if (data.searchQuery && isApiLoaded && window.google) {
                 searchResults = await performGoogleSearch(data.searchQuery, data.searchType);
+                console.log("📍 구글 검색 결과 수:", searchResults.length);
                 
-                // ============================================================
-                // [NEW] #@소속# 태그 치환 로직 (구글 검색 결과 1위 가게명 사용)
-                // ============================================================
                 if (searchResults && searchResults.length > 0) {
                     const topPlaceName = searchResults[0].name; // 1순위 가게 이름
-                    // 태그를 실제 가게 이름으로 변경 (작은 따옴표로 강조)
+                    console.log("🏆 1순위 가게:", topPlaceName);
+
+                    // 1. '#@소속#은(는)', '#@소속#이(가)' 처럼 괄호가 포함된 패턴을 먼저 처리
+                    finalAiMessage = finalAiMessage.replace(/#@소속#(\s*[\(]?[은는][\)]?)/g, `'${topPlaceName}'${getJosa(topPlaceName, '은/는')}`);
+                    finalAiMessage = finalAiMessage.replace(/#@소속#(\s*[\(]?[이가][\)]?)/g, `'${topPlaceName}'${getJosa(topPlaceName, '이/가')}`);
+                    
+                    // 2. 조사가 없는 나머지 '#@소속#' 태그 처리
                     finalAiMessage = finalAiMessage.replace(/#@소속#/g, `'${topPlaceName}'`);
+
                 } else {
-                    // 검색 결과가 0개인 경우 안전장치 (문맥이 이상해지지 않게 일반 명사로 변경)
+                    console.log("⚠️ 검색 결과 없음 -> 대체 텍스트 사용");
+                    finalAiMessage = finalAiMessage.replace(/#@소속#(\s*[\(]?[은는이가][\)]?)/g, "이곳");
                     finalAiMessage = finalAiMessage.replace(/#@소속#/g, "이 주변 맛집");
                 }
             } else {
-                // 검색어가 없거나 API 로드 실패 시 태그 제거
+                finalAiMessage = finalAiMessage.replace(/#@소속#(\s*[\(]?[은는이가][\)]?)/g, "추천 장소");
                 finalAiMessage = finalAiMessage.replace(/#@소속#/g, "추천 장소");
             }
+
+            console.log("✅ 최종 출력 메시지:", finalAiMessage);
 
             const newAiMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: finalAiMessage, // [수정] 치환된 최종 메시지 사용
+                content: finalAiMessage,
                 restaurants: searchResults
             };
             setChatMessages(prev => [...prev, newAiMsg]);
@@ -138,7 +160,7 @@ function SmartSearchPage() {
     }
   };
 
-  // 3. 구글 검색 실행
+  // 3. 구글 검색 실행 (좌표 추출 추가됨)
   const performGoogleSearch = (query, searchType) => {
     return new Promise((resolve) => {
         const service = new window.google.maps.places.PlacesService(document.createElement('div'));
@@ -175,7 +197,6 @@ function SmartSearchPage() {
                         return distance <= limitRadius;
                     });
 
-                    // [안전장치] 거리 필터 적용 후 결과가 없으면 원본 결과를 사용
                     if (filteredByDistance.length > 0) {
                         filtered = filteredByDistance;
                         filtered.sort((a, b) => (a.distanceVal || 0) - (b.distanceVal || 0));
@@ -194,8 +215,14 @@ function SmartSearchPage() {
                     photoUrl: place.photos && place.photos.length > 0 
                         ? place.photos[0].getUrl({ maxWidth: 400 }) 
                         : null,
-                    url: `http://googleusercontent.com/maps.google.com/maps/place?q=place_id:${place.place_id}`, // URL 수정됨
-                    distanceText: place.distanceText || null
+                    url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.place_id}`,
+                    distanceText: place.distanceText || null,
+                    
+                    // [핵심 추가] 좌표 정보 저장 (찜하기용)
+                    location: place.geometry ? {
+                        lat: place.geometry.location.lat(), 
+                        lng: place.geometry.location.lng() 
+                    } : { lat: 0, lng: 0 }
                 }));
                 resolve(formatted);
             } else {
@@ -351,7 +378,10 @@ function RestaurantCard({ place }) {
                     url: place.url,
                     rating: place.rating,
                     user_ratings_total: place.user_ratings_total,
-                    x: 0, y: 0
+                    
+                    // [수정] 0,0 대신 실제 좌표값(lng, lat) 전송
+                    x: place.location ? place.location.lng : 0, 
+                    y: place.location ? place.location.lat : 0
                 })
             });
         } catch(e) {

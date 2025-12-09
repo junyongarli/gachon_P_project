@@ -25,11 +25,6 @@ function cleanJsonString(str) {
     cleaned = cleaned.replace(/,\s*}/g, "}");
     cleaned = cleaned.replace(/,\s*]/g, "]");
 
-    // (4) AI가 뱉은 이상한 태그(#@...#)를 자연스러운 말로 치환
-    cleaned = cleaned.replace(/#@LOCATION#/g, "근처"); 
-    cleaned = cleaned.replace(/#@소속#/g, "추천");
-    cleaned = cleaned.replace(/#@.*?#/g, "이 곳"); 
-
     return cleaned;
 }
 
@@ -66,10 +61,12 @@ function mapToKeyword(text) {
 }
 
 // ==========================================
-// [A] 퀴즈 질문 생성 API
+// [A] 퀴즈 질문 생성 API (기존 코드 유지)
 // ==========================================
 router.post('/quiz/generate', protect, async (req, res) => {
-    console.log(`[AI 퀴즈 요청] 사용 모델: ${MODEL_ID}`);
+    // ... (기존 퀴즈 로직 동일하여 생략, 그대로 사용하시면 됩니다) ...
+    // 필요 시 이전에 작성해드린 퀴즈 API 코드를 그대로 복사해 넣으세요.
+     console.log(`[AI 퀴즈 요청] 사용 모델: ${MODEL_ID}`);
 
     try {
         const userId = req.user.id;
@@ -150,6 +147,7 @@ router.post('/quiz/generate', protect, async (req, res) => {
     }
 });
 
+
 // ==========================================
 // [B] 스마트 검색 (대화형) API
 // ==========================================
@@ -213,7 +211,7 @@ router.post('/smart-search', protect, async (req, res) => {
 
         const conversationHistory = history ? history.slice(-6) : [];
 
-        // 4. AI 호출 (프롬프트 수정: 위치 저장 금지)
+        // 4. AI 호출 (개선된 프롬프트 적용)
         const completion = await openai.chat.completions.create({
             model: MODEL_ID, 
             messages: [

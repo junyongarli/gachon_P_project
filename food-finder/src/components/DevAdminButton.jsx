@@ -12,7 +12,7 @@ function DevAdminButton() {
   const navigate = useNavigate();
 
   // 이미 관리자로 로그인된 경우 버튼 숨김
-  if (user?.role === 'admin') {
+  if (user) {
     return null;
   }
 

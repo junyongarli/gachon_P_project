@@ -3,10 +3,20 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const { User } = require('../models'); // DB 모델에서 User를 가져옵니다.
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+// 메일 전송기 설정 (한 번만 선언)
+const transporter = nodemailer.createTransport({
+  service: process.env.MAIL_SERVICE,
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+});
 
 // ## 회원가입 API (/api/auth/register)
 router.post('/register', async (req, res) => {
@@ -172,6 +182,56 @@ router.delete('/delete-account', protect, async (req, res) => {
   } catch (error) {
     console.error('회원 탈퇴 오류:', error);
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
+// [임시 비밀번호 발송 API]
+// 경로: POST /api/auth/forgot-password
+// ==========================================
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // 1. 가입된 이메일인지 확인
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: '가입되지 않은 이메일입니다.' });
+    }
+
+    // 2. 임시 비밀번호 생성 (영문+숫자 8자리)
+    // Math.random()을 이용해 랜덤 문자열 생성
+    const tempPassword = Math.random().toString(36).slice(2, 10);
+
+    // 3. 임시 비밀번호 암호화 후 DB 업데이트
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    // 4. 이메일 전송 옵션 설정
+    const mailOptions = {
+      from: process.env.MAIL_USER,
+      to: email,
+      subject: '[맛맵] 임시 비밀번호 발급 안내',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+          <h2 style="color: #f97316;">임시 비밀번호 안내</h2>
+          <p>안녕하세요, <strong>맛맵(MatMap)</strong>입니다.</p>
+          <p>요청하신 임시 비밀번호는 아래와 같습니다.</p>
+          <div style="background-color: #f3f4f6; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
+            <span style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #333;">${tempPassword}</span>
+          </div>
+          <p style="color: #666; font-size: 14px;">로그인 후 [마이페이지 > 설정]에서 반드시 비밀번호를 변경해 주세요.</p>
+        </div>
+      `,
+    };
+
+    // 메일 발송
+    await transporter.sendMail(mailOptions);
+
+    res.json({ success: true, message: '임시 비밀번호를 이메일로 전송했습니다.' });
+
+  } catch (error) {
+    console.error('임시 비번 발송 오류:', error);
+    res.status(500).json({ success: false, message: '메일 전송 중 오류가 발생했습니다.' });
   }
 });
 module.exports = router;

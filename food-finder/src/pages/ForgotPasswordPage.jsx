@@ -3,9 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { KeyRound, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
-import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { KeyRound, Mail, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion'; // motion/react 대신 framer-motion 사용 권장 (또는 기존 유지)
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner'; // 토스트 메시지 사용
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -16,26 +17,43 @@ function ForgotPasswordPage() {
     e.preventDefault();
 
     if (!email.trim()) {
-      alert('이메일을 입력해주세요.');
+      toast.error('이메일을 입력해주세요.');
       return;
     }
 
     if (!email.includes('@')) {
-      alert('올바른 이메일 형식을 입력해주세요.');
+      toast.error('올바른 이메일 형식을 입력해주세요.');
       return;
     }
 
     setIsLoading(true);
 
-    // TODO: API 연동
-    setTimeout(() => {
+    try {
+      // 백엔드 API 호출
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsSubmitted(true); // 성공 화면으로 전환
+        toast.success('임시 비밀번호가 발송되었습니다.');
+      } else {
+        toast.error(data.message || '발송 실패');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('서버 연결 중 오류가 발생했습니다.');
+    } finally {
       setIsLoading(false);
-      setIsSubmitted(true);
-    }, 1500);
+    }
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
       {/* 그라데이션 배경 */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50"></div>
       
@@ -44,146 +62,117 @@ function ForgotPasswordPage() {
       <div className="absolute top-40 right-10 w-64 h-64 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
       <div className="absolute bottom-20 left-1/2 w-64 h-64 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
 
-      {/* 메인 콘텐츠 */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center px-6 py-12">
+      <div className="relative z-10 w-full max-w-md">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-md"
         >
-          {/* 뒤로 가기 */}
-          <Link to="/login" className="inline-flex items-center gap-2 text-gray-600 hover:text-orange-600 mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            <span>로그인으로 돌아가기</span>
-          </Link>
-
-          <Card className="bg-white/80 backdrop-blur-sm shadow-2xl border border-white/20">
-            <CardContent className="p-8">
-              {!isSubmitted ? (
-                <>
-                  {/* 헤더 */}
-                  <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-orange-400 to-red-500 rounded-full mb-4">
-                      <KeyRound className="w-8 h-8 text-white" />
-                    </div>
-                    <h1 className="text-3xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-2">
-                      비밀번호 찾기
-                    </h1>
-                    <p className="text-gray-600">
-                      가입하신 이메일 주소를 입력하시면<br />
-                      비밀번호 재설정 링크를 보내드립니다
-                    </p>
-                  </div>
-
-                  {/* 폼 */}
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                      <Label htmlFor="email" className="flex items-center gap-2 mb-2">
-                        <Mail className="w-4 h-4 text-orange-500" />
-                        <span>이메일</span>
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="example@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                        className="h-12"
-                      />
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-                    >
-                      {isLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>전송 중...</span>
-                        </div>
-                      ) : (
-                        <>
-                          <Mail className="w-4 h-4 mr-2" />
-                          재설정 링크 보내기
-                        </>
-                      )}
-                    </Button>
-                  </form>
-
-                  {/* 도움말 */}
-                  <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      💡 이메일이 기억나지 않으신가요?<br />
-                      고객센터로 문의해주세요.
-                    </p>
-                  </div>
-                </>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg mb-4">
+              {isSubmitted ? (
+                <Mail className="w-8 h-8 text-orange-500" />
               ) : (
-                <>
-                  {/* 성공 메시지 */}
-                  <div className="text-center">
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                      className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6"
-                    >
-                      <CheckCircle className="w-10 h-10 text-green-600" />
-                    </motion.div>
-                    
-                    <h2 className="text-2xl text-gray-800 mb-4">
-                      이메일이 전송되었습니다!
-                    </h2>
-                    
-                    <p className="text-gray-600 mb-2">
-                      <span className="text-orange-600">{email}</span>로<br />
-                      비밀번호 재설정 링크를 보내드렸습니다.
-                    </p>
-                    
-                    <p className="text-sm text-gray-500 mb-8">
-                      메일이 오지 않았다면 스팸 메일함을 확인해주세요.
-                    </p>
+                <KeyRound className="w-8 h-8 text-orange-500" />
+              )}
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {isSubmitted ? '메일 전송 완료' : '비밀번호 찾기'}
+            </h1>
+            <p className="text-gray-600">
+              {isSubmitted 
+                ? '임시 비밀번호가 메일로 전송되었습니다.' 
+                : '가입하신 이메일로 임시 비밀번호를 보내드립니다.'}
+            </p>
+          </div>
 
-                    <div className="space-y-3">
-                      <Link to="/login" className="block">
-                        <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-                          로그인 페이지로 이동
-                        </Button>
-                      </Link>
-                      
-                      <Button
-                        onClick={() => {
-                          setIsSubmitted(false);
-                          setEmail('');
-                        }}
-                        variant="outline"
-                        className="w-full hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
-                      >
-                        다른 이메일로 재전송
-                      </Button>
-                    </div>
+          <Card className="bg-white/80 backdrop-blur-lg shadow-xl border-orange-100">
+            <CardContent className="p-6">
+              {!isSubmitted ? (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">이메일 주소</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="example@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="bg-white"
+                      disabled={isLoading}
+                    />
                   </div>
-                </>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-md hover:shadow-lg transition-all"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        전송 중...
+                      </>
+                    ) : (
+                      '임시 비밀번호 받기'
+                    )}
+                  </Button>
+                </form>
+              ) : (
+                // [전송 성공 화면] - 디자인 유지하되 텍스트만 변경
+                <div className="text-center space-y-6 py-4">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="flex justify-center"
+                  >
+                    <CheckCircle className="w-16 h-16 text-green-500" />
+                  </motion.div>
+                  
+                  <div className="space-y-2">
+                    <p className="font-medium text-gray-900">{email}</p>
+                    <p className="text-sm text-gray-600">
+                      위 이메일로 <strong>임시 비밀번호</strong>를 보냈습니다.<br/>
+                      로그인 후 반드시 비밀번호를 변경해주세요.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 space-y-3">
+                    <Button 
+                      asChild 
+                      className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                    >
+                      <Link to="/login">로그인 하러 가기</Link>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setIsSubmitted(false);
+                        setEmail('');
+                      }}
+                      variant="outline"
+                      className="w-full hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
+                    >
+                      다른 이메일로 재전송
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
 
           {/* 하단 링크 */}
-          <div className="text-center mt-6">
-            <p className="text-gray-600">
-              계정이 없으신가요?{' '}
-              <Link to="/signup" className="text-orange-600 hover:text-orange-700 hover:underline">
-                회원가입
+          {!isSubmitted && (
+            <div className="text-center mt-6">
+              <Link to="/login" className="text-gray-600 hover:text-orange-600 transition-colors flex items-center justify-center gap-2 text-sm">
+                <ArrowLeft className="w-4 h-4" /> 로그인으로 돌아가기
               </Link>
-            </p>
-          </div>
+            </div>
+          )}
         </motion.div>
       </div>
 
-      {/* CSS 애니메이션 */}
+      {/* CSS 애니메이션 (기존 유지) */}
       <style>{`
         @keyframes blob {
           0%, 100% { transform: translate(0, 0) scale(1); }
