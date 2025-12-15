@@ -47,6 +47,30 @@ const FALLBACK_QUESTIONS = [
       { text: "이국적이고 힙한", value: "western" }, 
       { text: "편안한 한식/전통", value: "korean" }
     ] 
+  },
+  { 
+    id: 6, 
+    question: "가격대는 어느 정도가 좋을까요?", 
+    options: [
+      { text: "가성비 좋게 저렴한", value: "rice" }, // 예시 매핑
+      { text: "오늘은 플렉스!", value: "meat" }
+    ] 
+  },
+  { 
+    id: 7, 
+    question: "식사 후 디저트 계획은?", 
+    options: [
+      { text: "자리 옮겨서 카페", value: "near" }, 
+      { text: "여기서 끝내거나 술 한잔", value: "alcohol" }
+    ] 
+  },
+  { 
+    id: 8, 
+    question: "얼마나 이동할 수 있나요?", 
+    options: [
+      { text: "바로 근처 (도보)", value: "near" }, 
+      { text: "차 타고 드라이브", value: "far" }
+    ] 
   }
 ];
 
@@ -61,7 +85,7 @@ const GoogleMapComponent = ({ restaurants, userLocation }) => {
 
     const initialCenter = userLocation
       ? { lat: userLocation.latitude, lng: userLocation.longitude }
-      : { lat: 37.5665, lng: 126.9780 };
+      : { lat: 37.4508, lng: 127.1288 };
 
     const newMap = new window.google.maps.Map(mapRef.current, {
       center: initialCenter,
@@ -301,8 +325,8 @@ function QuizPage() {
 
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
             let aiQuestions = data.data; 
-            if (aiQuestions.length < 5) {
-                const missingCount = 5 - aiQuestions.length;
+            if (aiQuestions.length < 8) {
+                const missingCount = 8 - aiQuestions.length;
                 const padQuestions = FALLBACK_QUESTIONS.slice(0, missingCount).map(q => ({
                     question: q.question,
                     options: q.options

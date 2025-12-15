@@ -32,31 +32,35 @@ function cleanJsonString(str) {
 function mapToKeyword(text) {
     const t = text || "";
     
-    if (t.includes('한식') || t.includes('백반') || t.includes('정식') || t.includes('집밥') || t.includes('죽')) return 'korean';
-    if (t.includes('양식') || t.includes('파스타') || t.includes('피자') || t.includes('스테이크') || t.includes('브런치')) return 'western';
+    // [중요] '고기', '해산물' 등 메인 재료를 먼저 체크해야 '차돌박이'가 '차(디저트)'로 오인되지 않음
+    if (t.includes('고기') || t.includes('삼겹') || t.includes('갈비') || t.includes('육류') || t.includes('차돌') || t.includes('치킨') || t.includes('스테이크')) return 'meat';
+    if (t.includes('해산물') || t.includes('생선') || t.includes('조개') || t.includes('게장') || t.includes('물회') || t.includes('회') || t.includes('초밥')) return 'seafood';
+    if (t.includes('한식') || t.includes('백반') || t.includes('정식') || t.includes('집밥') || t.includes('죽') || t.includes('밥')) return 'korean'; // '밥'은 한식으로 통합 권장
+    
     if (t.includes('중식') || t.includes('짜장') || t.includes('짬뽕') || t.includes('마라') || t.includes('탕수육')) return 'chinese'; 
-    if (t.includes('일식') || t.includes('초밥') || t.includes('스시') || t.includes('라멘') || t.includes('돈가스') || t.includes('덮밥')) return 'japanese';
-    if (t.includes('디저트') || t.includes('카페') || t.includes('빵') || t.includes('커피') || t.includes('차')) return 'sweet';
+    if (t.includes('일식') || t.includes('라멘') || t.includes('돈가스') || t.includes('덮밥') || t.includes('이자카야')) return 'japanese';
+    if (t.includes('양식') || t.includes('파스타') || t.includes('피자') || t.includes('브런치') || t.includes('버거')) return 'western';
+    
+    // [수정] '차' -> '전통차', '홍차', '녹차' 등으로 구체화하거나 제거. '커피'와 '카페'로 충분함.
+    if (t.includes('디저트') || t.includes('카페') || t.includes('빵') || t.includes('커피') || t.includes('케이크') || t.includes('빙수')) return 'sweet';
 
-    if (t.includes('고기') || t.includes('삼겹살') || t.includes('갈비') || t.includes('육류') || t.includes('차돌') || t.includes('치킨')) return 'meat';
-    if (t.includes('해산물') || t.includes('회') || t.includes('생선') || t.includes('조개') || t.includes('게장') || t.includes('물회')) return 'seafood';
     if (t.includes('면') || t.includes('국수') || t.includes('우동') || t.includes('소바')) return 'noodle';
-    if (t.includes('밥')) return 'rice';
 
-    if (t.includes('매운') || t.includes('얼큰') || t.includes('칼칼') || t.includes('화끈')) return 'spicy';
+    if (t.includes('매운') || t.includes('얼큰') || t.includes('칼칼') || t.includes('화끈') || t.includes('마라')) return 'spicy';
     if (t.includes('순한') || t.includes('담백') || t.includes('깔끔') || t.includes('지리')) return 'mild';
     if (t.includes('따뜻') || t.includes('뜨끈') || t.includes('국물') || t.includes('탕') || t.includes('찌개') || t.includes('전골')) return 'hot';
     if (t.includes('시원') || t.includes('차가운') || t.includes('냉') || t.includes('아이스')) return 'cold';
     if (t.includes('짭짤') || t.includes('간장') || t.includes('단짠')) return 'salty';
 
-    if (t.includes('술') || t.includes('안주') || t.includes('포차') || t.includes('맥주') || t.includes('소주') || t.includes('와인')) return 'alcohol';
+    if (t.includes('술') || t.includes('안주') || t.includes('포차') || t.includes('맥주') || t.includes('소주') || t.includes('와인') || t.includes('하이볼')) return 'alcohol';
     if (t.includes('혼밥') || t.includes('혼자')) return 'alone';
     if (t.includes('단체') || t.includes('회식') || t.includes('모임') || t.includes('가족')) return 'group';
-    if (t.includes('분위기') || t.includes('데이트') || t.includes('예쁜') || t.includes('야경')) return 'modern';
+    if (t.includes('분위기') || t.includes('데이트') || t.includes('예쁜') || t.includes('야경') || t.includes('뷰')) return 'modern';
     if (t.includes('전통') || t.includes('노포') || t.includes('시장')) return 'traditional';
         
     if (t.includes('근처') || t.includes('가까운') || t.includes('주변') || t.includes('동네') || t.includes('도보')) return 'near';
     if (t.includes('멀리') || t.includes('이동') || t.includes('차량') || t.includes('드라이브') || t.includes('교외')) return 'far';
+    
     return null; 
 }
 
@@ -64,14 +68,13 @@ function mapToKeyword(text) {
 // [A] 퀴즈 질문 생성 API (기존 코드 유지)
 // ==========================================
 router.post('/quiz/generate', protect, async (req, res) => {
-    // ... (기존 퀴즈 로직 동일하여 생략, 그대로 사용하시면 됩니다) ...
-    // 필요 시 이전에 작성해드린 퀴즈 API 코드를 그대로 복사해 넣으세요.
-     console.log(`[AI 퀴즈 요청] 사용 모델: ${MODEL_ID}`);
+    console.log(`[AI 퀴즈 요청]`); // 모델 ID 로그 제거 (기본 모델 쓸 것이므로)
 
     try {
         const userId = req.user.id;
         const { location, time, weather } = req.body;
 
+        // 1. 찜 목록 가져오기 (참고용)
         const favorites = await Favorite.findAll({
             where: { userId },
             attributes: ['restaurant_name', 'category'],
@@ -79,36 +82,48 @@ router.post('/quiz/generate', protect, async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        // 찜 데이터가 너무 디저트에 편향되지 않도록 참고만 하라는 멘트 추가 예정
         const favData = favorites.map(f => `${f.restaurant_name}(${f.category})`).join(', ');
-        const favContext = favorites.length > 0 ? `선호: ${favData}` : `정보 없음`;
+        const favContext = favorites.length > 0 ? `User Favorites: ${favData}` : `User Favorites: None`;
 
+        // 2. AI 호출 (여기서 모델을 하드코딩으로 변경!)
+        // 퀴즈 생성은 파인튜닝 모델보다 일반 모델이 훨씬 논리적입니다.
         const completion = await openai.chat.completions.create({
-            model: MODEL_ID,
+            model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",
-                    content: `당신은 '맛맵'의 취향 파악 퀴즈 생성기입니다.
-                    사용자의 상황과 선호를 분석하여 맛집 추천을 위한 '이지선다' 질문 5개를 JSON으로 생성하세요.
+                    content: `You are 'MatMap', a taste analysis quiz generator.
+                    Create 8 'A or B' choice questions to determine what the user wants to eat RIGHT NOW.
                     
-                    [규칙]
-                    1. 반드시 JSON 형식만 출력하세요. (설명 금지)
-                    2. 정확히 5개의 질문을 만드세요.
-                    3. 답변(a, b)에는 음식 종류, 재료, 맛, 분위기 등 구체적인 키워드를 넣으세요.
-                    
-                    [형식 예시]
+                    [Key Rules]
+                    1. Respond ONLY in JSON format.
+                    2. Questions must be diverse (Korean/Western, Spicy/Mild, Rice/Noodle, Atmosphere).
+                    3. **[IMPORTANT] You MUST include exactly 1 question about DISTANCE/Mobility.**
+                       - Example: "How far can you go?" -> "Walking distance (Nearby)" vs "Drive/Taxi (Far)".
+                       - **Answers for distance MUST contain Korean keywords:** - For Near: "근처", "도보", "가까운", "동네"
+                         - For Far: "멀리", "차량", "드라이브", "이동"
+                    4. Do NOT focus only on specific menus like 'Oyster Bossam'. Use broad categories.
+                    5. Do NOT be biased by user favorites. Use them only for reference.
+                    6. Answers (a, b) must map to clear food categories or distance keywords.
+
+                    [JSON Format]
                     {
                         "questions": [
-                            {"q": "질문 내용", "a": "선택지A", "b": "선택지B"},
-                            ... (총 5개) ...
+                            {"q": "지금 땡기는 맛은?", "a": "매콤하고 얼큰한 국물", "b": "담백하고 시원한 국물"},
+                            ... (Total 8 questions) ...
                         ]
                     }`
                 },
                 {
                     role: "user",
-                    content: `위치: ${location}, 시간: ${time}, 날씨: ${weather || ''}. [${favContext}]`
+                    content: `Current Context -> Location: ${location}, Time: ${time}, Weather: ${weather}. 
+                    ${favContext}
+                    
+                    Based on the context, create 8 balanced questions to narrow down the lunch/dinner menu.`
                 }
             ],
-            temperature: 0.7
+            temperature: 0.8 // 창의성을 위해 약간 높임
         });
 
         const rawContent = completion.choices[0].message.content;
@@ -119,6 +134,7 @@ router.post('/quiz/generate', protect, async (req, res) => {
             result = JSON.parse(cleanedContent);
         } catch (parseError) {
             console.error("[JSON 파싱 실패]:", parseError.message);
+            // ... (에러 처리 로직 동일)
             try {
                 const fixEnd = rawContent.trim().replace(/]+$/, '') + "]}"; 
                 result = JSON.parse(fixEnd);
@@ -131,6 +147,7 @@ router.post('/quiz/generate', protect, async (req, res) => {
             throw new Error("questions 배열이 없습니다.");
         }
 
+        // 3. 키워드 매핑
         const formattedQuestions = result.questions.map((item) => ({
             question: item.q,
             options: [
@@ -228,34 +245,55 @@ router.post('/smart-search', protect, async (req, res) => {
                     - OR do you have user GPS coordinates (Context)?
                     - IF NO LOCATION is identified: Ask "Where should I find a restaurant?" and set 'searchQuery' to null.
 
-                    **Step 2: Check Menu/Cuisine**
-                    - Did the user mention what they want to eat (e.g., "Pasta", "Korean BBQ", "Lunch")?
-                    - IF LOCATION is known BUT MENU is unknown: Ask "What kind of food are you craving?" or suggest categories based on history. Set 'searchQuery' to null.
-
+                    **Step 2: Check Menu/Cuisine (THE MOST IMPORTANT STEP)**
+                    - You MUST know WHAT the user wants to eat (e.g., "Pasta", "Meat", "Rice", "Sushi").
+                    - **IF Location is KNOWN but Menu is UNKNOWN:**
+                        - **STOP! DO NOT SEARCH.** (Forbidden: "Amsa Restaurants")
+                        - **Set 'searchQuery' to null.**
+                        - **Ask:** "What kind of food would you like in [Location]? (e.g. Korean, Japanese, Cafe)"
+                        - **Do NOT use #@소속# tag.**
+                    - **EXCEPTION:** If the user explicitly says "Anything", "Recommend whatever", or "I'm just hungry" (implying no preference), THEN you can skip to recommendation.
+                    
                     **Step 3: Check Vibe/Budget (Optional)**
                     - If both Location and Menu are known, you may ask for details like "Quiet atmosphere?" or "Cheap price?" OR proceed to recommendation immediately.
 
                     **Step 4: Final Recommendation**
                     - IF enough info is gathered (Location + Menu), generate a 'searchQuery'.
 
-                    [CRITICAL RULE: Search Type Classification]
-                    1. **SPECIFIC_REGION**: If the user mentions a specific **administrative region, district, or landmark** (e.g., "Gangnam", "Hongdae", "Busan"), MUST use 'SPECIFIC_REGION'.
-                    2. **CURRENT_LOCATION**: If the user says "nearby", "around here", or provides NO location name (but GPS is available), use 'CURRENT_LOCATION'.
+                    [CRITICAL RULE: NO GUESSING]
+                    - If the user ONLY provides a location ("Amsa Station"), **you must NOT assume they want general 'restaurants'.**
+                    - You MUST ask for their preferred menu first.
+                    - In this case, **'searchQuery' MUST be null.**
 
-                    [Location Handling]
-                    - If user GPS is available and user asks "nearby", say "I'll find a place near you!" (Don't say "I don't know where you are").
+                    [CRITICAL RULE: Search Type Classification]
+                    1. **SPECIFIC_REGION**: 
+                        - If input contains specific region name ("Gangnam", "Hongdae").
+                        - **If input contains a Subway Station name (ends with '역' or 'Station') -> MUST be 'SPECIFIC_REGION'.**
+                        - **If input contains a University name (ends with '대', 'Univ') -> MUST be 'SPECIFIC_REGION'.**
+                    2. **CURRENT_LOCATION**: 
+                        - If input is "nearby", "here", "around me".
+                        - If input is purely a menu name ("Pasta", "Hungry") WITHOUT any location name.
+                    
+                    [CRITICAL RULE: Handling Follow-up Requests]
+                    - If the user asks for **"links"**, **"reviews"**, **"map"**, or **"details"** about the previous recommendation:
+                        - **YOU MUST RE-GENERATE the 'searchQuery'.** (e.g., "Gangnam Date Course")
+                        - **NEVER set 'searchQuery' to null.** The frontend needs the query to display the cards again.
+                        - Reply: "Here are the links and reviews for the recommended places!"
 
                     [Search Query Generation Logic]
                     - **searchQuery = null**: If you are asking a question (Step 1 or Step 2).
                     - **searchQuery = "String"**: If you have enough info to search Google Maps (e.g., "Gangnam Pasta", "Quiet Cafe near me").
 
-                    [Response Language]
+                    [Response Language & Tag Usage]
                     - **Your 'reply' MUST be in natural Korean.**
-                    - Use tags like #@소속# to indicate where the restaurant name will be inserted by the frontend.
+                    - **Use #@소속# ONLY when 'searchQuery' is NOT null.**
+                    - **If 'searchQuery' is null, NEVER use #@소속#.**
+                        - (Bad): "암사역 근처 #@소속#을 찾으시나요?" (X)
+                        - (Good): "암사역 근처에서 어떤 음식을 드시고 싶으세요?" (O)
                     - [Important] Always frame the sentence with #@소속# as a **suggestion**, not a description.
                         - (Bad): "#@소속#이 아주 유명합니다." -> (If replaced with 'This place'): "This place is very famous." (Risk of lying)
                         - (Good): "#@소속#은(는) 어떠신가요?" -> (If replaced): "How about 'This place'?" (Natural)
-                        
+                    
                     [JSON Output Format]
                     { 
                         "searchQuery": "Google Maps query string (or null if asking a question)", 
