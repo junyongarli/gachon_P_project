@@ -73,7 +73,7 @@ npm install
 ```
 환경 변수 파일 (.env) 생성: food-finder 폴더 안에 .env 파일을 만듭니다. 변수 이름은 반드시 VITE_로 시작해야 합니다.
 
-### 카카오맵 API 키
+### 구글맵 API 키
 VITE_GOOGLE_MAPS_API_KEY=# 발급받은 구글맵 키
 
 ## ▶️ 애플리케이션 실행
